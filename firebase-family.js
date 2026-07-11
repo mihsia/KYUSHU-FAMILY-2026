@@ -154,13 +154,18 @@ function attachSnapshots() {
     emit({ phase: 'ready', message: '已同步', error: null });
   }, handleError));
   for (const name of COLLECTIONS) {
-    unsubs.push(onSnapshot(tripCollection(name), (snapshot) => {
+    unsubs.push(onSnapshot(tripCollection(name), async (snapshot) => {
       if (name === 'packing') {
         cloud.packingChecked = Object.fromEntries(snapshot.docs.map((entry) => [entry.id, !!entry.data().checked]));
       } else if (name === 'documents') {
         cloud.documents = {};
-        snapshot.docs.forEach((entry) => {
+        const documents = await Promise.all(snapshot.docs.map(async (entry) => {
           const value = { id: entry.id, ...entry.data() };
+          try { value.dataUrl = await getDownloadURL(ref(storage, value.storagePath)); }
+          catch (_) { value.dataUrl = ''; }
+          return value;
+        }));
+        documents.forEach((value) => {
           (cloud.documents[value.category] ||= []).push(value);
         });
       } else {
