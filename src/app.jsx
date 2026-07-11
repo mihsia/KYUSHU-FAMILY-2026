@@ -267,6 +267,7 @@ class Component extends DCLogic {
       expenseJpy: '',
       expenseReceipt: null,
       expenseReceiptUrl: '',
+      expenseReceiptInputKey: 0,
       expenseSaving: false,
       expenseProgress: 0,
       expenseError: '',
@@ -426,7 +427,13 @@ class Component extends DCLogic {
 
   clearExpenseReceipt() {
     if (this.state.expenseReceiptUrl) URL.revokeObjectURL(this.state.expenseReceiptUrl);
-    this.setState({ expenseReceipt: null, expenseReceiptUrl: '', expenseProgress: 0, expenseError: '' });
+    this.setState(s => ({
+      expenseReceipt: null,
+      expenseReceiptUrl: '',
+      expenseReceiptInputKey: s.expenseReceiptInputKey + 1,
+      expenseProgress: 0,
+      expenseError: '',
+    }));
   }
 
   renderVals() {
@@ -607,6 +614,7 @@ class Component extends DCLogic {
       expenseJpy: this.state.expenseJpy,
       onExpenseJpyInput: (e) => this.setState({ expenseJpy: e.target.value.replace(/[^0-9]/g, '') }),
       expenseReceiptUrl: this.state.expenseReceiptUrl,
+      expenseReceiptInputKey: this.state.expenseReceiptInputKey,
       expenseReceiptName: this.state.expenseReceipt?.name || '',
       expenseHasReceipt: !!this.state.expenseReceipt,
       expenseSaving: this.state.expenseSaving,
@@ -640,6 +648,7 @@ class Component extends DCLogic {
             expenseJpy: '',
             expenseReceipt: null,
             expenseReceiptUrl: '',
+            expenseReceiptInputKey: s.expenseReceiptInputKey + 1,
             expenseSaving: false,
             expenseProgress: 0,
             expenseError: '',

@@ -42,6 +42,19 @@ test('expense UI supports one image receipt with preview, progress, and retry er
   assert.match(app, /URL\.revokeObjectURL/);
 });
 
+test('receipt picker remounts after remove and successful save so the same file can be selected again', async () => {
+  const [html, app] = await Promise.all([
+    readFile('index.html', 'utf8'),
+    readFile('src/app.jsx', 'utf8'),
+  ]);
+  const raw = html.match(/<script type="__bundler\/template">\s*([\s\S]*?)\s*<\/script>/)?.[1];
+  const template = JSON.parse(raw);
+  assert.match(template, /key="\{\{ expenseReceiptInputKey \}\}"/);
+  assert.match(app, /expenseReceiptInputKey:\s*0/);
+  assert.match(app, /clearExpenseReceipt\([\s\S]*expenseReceiptInputKey:\s*s\.expenseReceiptInputKey \+ 1/);
+  assert.match(app, /expenses:\s*\[\.\.\.s\.expenses, created\][\s\S]*expenseReceiptInputKey:\s*s\.expenseReceiptInputKey \+ 1/);
+});
+
 test('bundled itinerary starts with overview and keeps meeting copy with CI110', async () => {
   const html = await readFile('index.html', 'utf8');
   const raw = html.match(/<script type="__bundler\/template">\s*([\s\S]*?)\s*<\/script>/)?.[1];
