@@ -35,6 +35,20 @@ export function sanitizeFileName(name) {
   return value || 'document';
 }
 
+export function sanitizeReceiptFileName(name) {
+  const baseName = String(name || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .pop()
+    .trim();
+  const extensionMatch = baseName.match(/\.([A-Za-z0-9]+)$/);
+  const extension = extensionMatch ? `.${extensionMatch[1]}` : '';
+  const stem = (extensionMatch ? baseName.slice(0, -extension.length) : baseName)
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/^[-._]+|[-._]+$/g, '');
+  return `${stem || 'receipt'}${extension}`;
+}
+
 export function validateUpload(file) {
   if (!file || Number(file.size) > MAX_FILE_SIZE) {
     return { ok: false, error: '檔案超過 10 MB' };
@@ -46,8 +60,9 @@ export function validateUpload(file) {
 }
 
 export function validateReceipt(file) {
-  if (!file || Number(file.size) <= 0) return { ok: false, error: '收據檔案不可為空' };
-  if (Number(file.size) > MAX_FILE_SIZE) return { ok: false, error: '收據超過 10 MB' };
+  const size = Number(file?.size);
+  if (!Number.isFinite(size) || size <= 0) return { ok: false, error: '收據檔案不可為空' };
+  if (size > MAX_FILE_SIZE) return { ok: false, error: '收據超過 10 MB' };
   if (!RECEIPT_TYPES.has(String(file.type || '').toLowerCase())) {
     return { ok: false, error: '收據只允許 JPEG、PNG 或 WebP' };
   }

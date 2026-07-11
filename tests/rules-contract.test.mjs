@@ -42,7 +42,7 @@ test('Firestore expense receipt fields are atomic, image-only, and tied to the e
   assert.match(rules, /function hasNoReceipt\(data\)/);
   assert.match(rules, /function hasValidReceipt\(data, expenseId\)/);
   assert.match(rules, /hasAll\(\['receiptPath', 'receiptName', 'receiptType', 'receiptSize'\]\)/);
-  assert.ok(rules.includes("^trips/kyushu-2026/receipts/' + expenseId + '/[^/]+$"));
+  assert.ok(rules.includes("^trips/kyushu-2026/receipts/' + expenseId + '/[A-Za-z0-9._-]+$"));
   assert.match(rules, /data\.receiptType\.matches\('\^image\/\(jpeg\|png\|webp\)\$'\)/);
   assert.match(rules, /data\.receiptSize is int && data\.receiptSize > 0 && data\.receiptSize <= 10 \* 1024 \* 1024/);
   assert.match(rules, /hasNoReceipt\(data\) \|\| hasValidReceipt\(data, expenseId\)/);
@@ -54,6 +54,7 @@ test('Storage rules preserve document uploads and restrict receipts to images up
   assert.match(rules, /documents\/\{documentId\}\/\{fileName\}/);
   assert.match(rules, /application\/pdf/);
   assert.match(rules, /receipts\/\{expenseId\}\/\{fileName\}/);
+  assert.match(rules, /fileName\.matches\('\^\[A-Za-z0-9\._-\]\+\$'\)/);
   assert.match(rules, /request\.resource\.size > 0/);
   assert.match(rules, /request\.resource\.size <= 10 \* 1024 \* 1024/);
   assert.match(rules, /request\.resource\.contentType\.matches\('image\/\(jpeg\|png\|webp\)'\)/);

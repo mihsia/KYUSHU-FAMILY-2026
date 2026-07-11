@@ -25,6 +25,7 @@ service firebase.storage {
     match /trips/kyushu-2026/receipts/{expenseId}/{fileName} {
       allow read, delete: if isAllowed();
       allow create, update: if isAllowed()
+        && fileName.matches('^[A-Za-z0-9._-]+$')
         && request.resource.size > 0
         && request.resource.size <= 10 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|webp)');

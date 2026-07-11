@@ -59,7 +59,7 @@ service cloud.firestore {
     function hasValidReceipt(data, expenseId) {
       return data.keys().hasAll(['receiptPath', 'receiptName', 'receiptType', 'receiptSize'])
         && data.receiptPath is string
-        && data.receiptPath.matches('^trips/kyushu-2026/receipts/' + expenseId + '/[^/]+$')
+        && data.receiptPath.matches('^trips/kyushu-2026/receipts/' + expenseId + '/[A-Za-z0-9._-]+$')
         && data.receiptName is string && data.receiptName.size() > 0 && data.receiptName.size() <= 240
         && data.receiptType is string && data.receiptType.matches('^image/(jpeg|png|webp)$')
         && data.receiptSize is int && data.receiptSize > 0 && data.receiptSize <= 10 * 1024 * 1024;

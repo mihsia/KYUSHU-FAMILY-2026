@@ -8,6 +8,7 @@ import {
   normalizeLegacyStore,
   roleForEmail,
   sanitizeFileName,
+  sanitizeReceiptFileName,
   validateReceipt,
   validateUpload,
 } from '../firebase-family-core.js';
@@ -38,6 +39,20 @@ test('receipt validation accepts only non-empty JPEG PNG or WebP up to 10 MB', (
   assert.deepEqual(validateReceipt({ size: 0, type: 'image/png' }), { ok: false, error: '收據檔案不可為空' });
   assert.deepEqual(validateReceipt({ size: 4, type: 'application/pdf' }), { ok: false, error: '收據只允許 JPEG、PNG 或 WebP' });
   assert.deepEqual(validateReceipt({ size: MAX_FILE_SIZE + 1, type: 'image/png' }), { ok: false, error: '收據超過 10 MB' });
+});
+
+test('receipt validation rejects missing and non-finite file sizes', () => {
+  assert.deepEqual(validateReceipt({ type: 'image/jpeg' }), { ok: false, error: '收據檔案不可為空' });
+  assert.deepEqual(validateReceipt({ size: 'abc', type: 'image/jpeg' }), { ok: false, error: '收據檔案不可為空' });
+  assert.deepEqual(validateReceipt({ size: Number.NaN, type: 'image/jpeg' }), { ok: false, error: '收據檔案不可為空' });
+  assert.deepEqual(validateReceipt({ size: Number.POSITIVE_INFINITY, type: 'image/jpeg' }), { ok: false, error: '收據檔案不可為空' });
+});
+
+test('sanitizes receipt storage names to a non-empty strict ASCII component', () => {
+  assert.equal(sanitizeReceiptFileName('../My receipt (1).JPG'), 'My-receipt-1.JPG');
+  assert.equal(sanitizeReceiptFileName('收據.jpg'), 'receipt.jpg');
+  assert.equal(sanitizeReceiptFileName('🚀'), 'receipt');
+  assert.match(sanitizeReceiptFileName('a/b\\c?.webp'), /^[A-Za-z0-9._-]+$/);
 });
 
 test('normalizes legacy state without mutating it', () => {
