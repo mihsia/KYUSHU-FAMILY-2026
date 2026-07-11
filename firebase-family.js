@@ -290,8 +290,12 @@ async function deleteExpenseWithReceipt(expense) {
   if (expense.receiptPath) {
     try {
       await deleteObject(ref(storage, expense.receiptPath));
-    } catch (_) {
-      throw new Error('收據刪除失敗，請重試');
+    } catch (error) {
+      if (error?.code === 'storage/object-not-found') {
+        // A prior attempt already removed the receipt; resume with Firestore.
+      } else {
+        throw new Error('收據刪除失敗，請重試');
+      }
     }
   }
   await deleteDoc(doc(tripCollection('expenses'), String(expense.id)));

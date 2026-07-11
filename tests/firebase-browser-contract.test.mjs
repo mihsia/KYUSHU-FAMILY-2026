@@ -70,6 +70,8 @@ test('browser service exposes receipt-aware expense operations in safe order', a
 
   const deleteBody = source.match(/async function deleteExpenseWithReceipt[\s\S]*?\n}/)?.[0] || '';
   assert.ok(deleteBody.indexOf('deleteObject') < deleteBody.indexOf('deleteDoc'));
+  assert.match(deleteBody, /error\?\.code === 'storage\/object-not-found'/);
+  assert.match(deleteBody, /storage\/object-not-found'[\s\S]*deleteDoc/);
   assert.match(deleteBody, /throw new Error\('收據刪除失敗，請重試'/);
 });
 

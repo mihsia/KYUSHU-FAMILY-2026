@@ -7,14 +7,15 @@ const [html, source] = await Promise.all([
 const match = html.match(/<script type="__bundler\/template">\s*([\s\S]*?)\s*<\/script>/);
 if (!match) throw new Error('bundle template missing');
 let template = JSON.parse(match[1]);
-const rateButton = 'sc-camel-on-click="{{ saveRate }}"';
-template = template.replace(`${rateButton} sc-camel-disabled="{{ rateSaving }}"`, rateButton);
-const rateButtonMatches = template.split(rateButton).length - 1;
-if (rateButtonMatches !== 1) throw new Error(`expected one rate save button, found ${rateButtonMatches}`);
+const rateSaveButtonPattern = /(<button type="button" sc-camel-on-click="\{\{ saveRate \}\}")(?: sc-camel-disabled="\{\{ rateSaving \}\}")?([^>]*>)(?:儲存匯率|\{\{ rateSaveLabel \}\})(<\/button>)/g;
+const rateSaveButtonMatches = [...template.matchAll(rateSaveButtonPattern)];
+if (rateSaveButtonMatches.length !== 1) {
+  throw new Error(`expected exactly one rate save button block, found ${rateSaveButtonMatches.length}`);
+}
 template = template.replace(
-  rateButton,
-  `${rateButton} sc-camel-disabled="{{ rateSaving }}"`,
-).replace('>儲存匯率</button>', '>{{ rateSaveLabel }}</button>');
+  rateSaveButtonPattern,
+  '$1 sc-camel-disabled="{{ rateSaving }}"$2{{ rateSaveLabel }}$3',
+);
 const appPattern = /(<script[^>]*>)([\s\S]*?)(<\/script>)/g;
 const candidates = [...template.matchAll(appPattern)]
   .filter((candidate) => candidate[2].includes('const DAYS = [') && candidate[2].includes('class Component extends DCLogic'));

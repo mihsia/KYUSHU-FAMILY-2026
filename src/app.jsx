@@ -514,7 +514,7 @@ class Component extends DCLogic {
     });
 
     const expenseTotalJpy = this.state.expenses.reduce((sum, e) => sum + Number(e.jpy || 0), 0);
-    const expenseTotalTwd = Math.round(expenseTotalJpy * 0.214).toLocaleString();
+    const expenseTotalTwd = Math.round(expenseTotalJpy * (this.state.rate / 100)).toLocaleString();
 
     const expenseDayOptions = DAYS.map(d => ({
       label: d.date,

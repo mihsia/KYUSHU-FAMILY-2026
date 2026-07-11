@@ -84,3 +84,16 @@ test('rate UI keeps shared metadata and only persists a valid positive rate', as
   assert.match(template, />\{\{ rateSaveLabel \}\}</);
   assert.match(template, /\{\{ rateError \}\}/);
 });
+
+test('expense TWD total uses the confirmed shared BOT rate units', async () => {
+  const source = await readFile('src/app.jsx', 'utf8');
+  assert.match(source, /expenseTotalTwd = Math\.round\(expenseTotalJpy \* \(this\.state\.rate \/ 100\)\)\.toLocaleString\(\)/);
+  assert.doesNotMatch(source, /expenseTotalJpy \* 0\.214/);
+});
+
+test('bundle builder scopes rate button changes to one exact button block', async () => {
+  const source = await readFile('scripts/build-app-bundle.mjs', 'utf8');
+  assert.match(source, /const rateSaveButtonPattern =/);
+  assert.match(source, /expected exactly one rate save button block/);
+  assert.doesNotMatch(source, /\.replace\('>\u5132\u5b58\u532f\u7387<\/button>',/);
+});
