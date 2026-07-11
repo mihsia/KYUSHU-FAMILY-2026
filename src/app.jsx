@@ -265,6 +265,11 @@ class Component extends DCLogic {
       expenseCat: '餐飲',
       expenseNote: '',
       expenseJpy: '',
+      expenseReceipt: null,
+      expenseReceiptUrl: '',
+      expenseSaving: false,
+      expenseProgress: 0,
+      expenseError: '',
       rate: Number(saved.rate) > 0 ? Number(saved.rate) : 21.4,
       rateMeta: {
         source: saved.rateSource === 'BOT cash sell' ? saved.rateSource : 'BOT cash sell',
@@ -299,6 +304,10 @@ class Component extends DCLogic {
 
   componentDidUpdate() {
     this.tryInitMap();
+  }
+
+  componentWillUnmount() {
+    if (this.state.expenseReceiptUrl) URL.revokeObjectURL(this.state.expenseReceiptUrl);
   }
 
   tryInitMap() {
@@ -382,10 +391,42 @@ class Component extends DCLogic {
     return () => { window.open(dataUrl, '_blank'); };
   }
 
-  deleteExpense(id) {
-    return () => {
-      this.setState(s => ({ expenses: s.expenses.filter(e => e.id !== id) }), () => this.persist());
+  deleteExpense(expense) {
+    return async () => {
+      this.setState({ expenseError: '' });
+      try {
+        await window.KyushuFamily.deleteExpenseWithReceipt(expense);
+        this.setState(s => ({ expenses: s.expenses.filter(e => e.id !== expense.id) }), () => this.persist());
+      } catch (error) {
+        this.setState({ expenseError: error?.message || '收據刪除失敗，請重試' });
+      }
     };
+  }
+
+  selectExpenseReceipt(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'].includes(String(file.type || '').toLowerCase());
+    const error = !file.size ? '收據檔案不可為空'
+      : file.size > 10 * 1024 * 1024 ? '收據超過 10 MB'
+        : !allowed ? '收據只允許 JPEG、PNG 或 WebP' : '';
+    if (error) {
+      e.target.value = '';
+      this.setState({ expenseError: error });
+      return;
+    }
+    if (this.state.expenseReceiptUrl) URL.revokeObjectURL(this.state.expenseReceiptUrl);
+    this.setState({
+      expenseReceipt: file,
+      expenseReceiptUrl: URL.createObjectURL(file),
+      expenseError: '',
+      expenseProgress: 0,
+    });
+  }
+
+  clearExpenseReceipt() {
+    if (this.state.expenseReceiptUrl) URL.revokeObjectURL(this.state.expenseReceiptUrl);
+    this.setState({ expenseReceipt: null, expenseReceiptUrl: '', expenseProgress: 0, expenseError: '' });
   }
 
   renderVals() {
@@ -484,7 +525,9 @@ class Component extends DCLogic {
     const expenseByDay = DAYS.map(d => {
       const entries = this.state.expenses.filter(e => e.day === d.id).map(e => ({
         ...e,
-        onDelete: this.deleteExpense(e.id),
+        hasReceipt: !!e.receiptPath,
+        onPreviewReceipt: () => window.KyushuFamily.previewReceipt(e).catch((error) => this.setState({ expenseError: error?.message || '收據開啟失敗，請重試' })),
+        onDelete: this.deleteExpense(e),
       }));
       const subtotal = entries.reduce((sum, e) => sum + Number(e.jpy || 0), 0);
       return { label: d.date + '（' + d.dow + '）· ' + d.region, color: d.color, entries, subtotal: subtotal.toLocaleString(), empty: entries.length === 0 };
@@ -563,20 +606,47 @@ class Component extends DCLogic {
       onExpenseNoteInput: (e) => this.setState({ expenseNote: e.target.value }),
       expenseJpy: this.state.expenseJpy,
       onExpenseJpyInput: (e) => this.setState({ expenseJpy: e.target.value.replace(/[^0-9]/g, '') }),
-      addExpense: () => {
+      expenseReceiptUrl: this.state.expenseReceiptUrl,
+      expenseReceiptName: this.state.expenseReceipt?.name || '',
+      expenseHasReceipt: !!this.state.expenseReceipt,
+      expenseSaving: this.state.expenseSaving,
+      expenseProgress: this.state.expenseProgress,
+      expenseError: this.state.expenseError,
+      expenseSaveLabel: this.state.expenseSaving
+        ? (this.state.expenseReceipt ? `上傳中 ${this.state.expenseProgress}%` : '儲存中…')
+        : '加入記帳',
+      onExpenseReceipt: (e) => this.selectExpenseReceipt(e),
+      removeExpenseReceipt: () => this.clearExpenseReceipt(),
+      addExpense: async () => {
         const jpy = Number(this.state.expenseJpy);
-        if (!jpy) return;
-        this.setState(s => ({
-          expenses: [...s.expenses, {
-            id: 'e' + Date.now(),
-            day: s.expenseDay,
-            category: s.expenseCat,
-            note: s.expenseNote.trim() || '(未命名)',
-            jpy,
-          }],
-          expenseNote: '',
-          expenseJpy: '',
-        }), () => this.persist());
+        if (!jpy || this.state.expenseSaving) return;
+        const expense = {
+          day: this.state.expenseDay,
+          category: this.state.expenseCat,
+          note: this.state.expenseNote.trim() || '(未命名)',
+          jpy,
+        };
+        this.setState({ expenseSaving: true, expenseProgress: 0, expenseError: '' });
+        try {
+          const created = await window.KyushuFamily.createExpenseWithReceipt(
+            expense,
+            this.state.expenseReceipt,
+            (expenseProgress) => this.setState({ expenseProgress }),
+          );
+          if (this.state.expenseReceiptUrl) URL.revokeObjectURL(this.state.expenseReceiptUrl);
+          this.setState(s => ({
+            expenses: [...s.expenses, created],
+            expenseNote: '',
+            expenseJpy: '',
+            expenseReceipt: null,
+            expenseReceiptUrl: '',
+            expenseSaving: false,
+            expenseProgress: 0,
+            expenseError: '',
+          }), () => this.persist());
+        } catch (error) {
+          this.setState({ expenseSaving: false, expenseError: error?.message || '記帳儲存失敗，請重試' });
+        }
       },
       expenseByDay,
       rateInput: this.state.rateDraft,

@@ -22,6 +22,26 @@ test('bridge starts Firebase and synchronizes local application state', async ()
   assert.match(source, /kyushu-family-app-v1/);
 });
 
+test('expense UI supports one image receipt with preview, progress, and retry errors', async () => {
+  const [html, app] = await Promise.all([
+    readFile('index.html', 'utf8'),
+    readFile('src/app.jsx', 'utf8'),
+  ]);
+  const raw = html.match(/<script type="__bundler\/template">\s*([\s\S]*?)\s*<\/script>/)?.[1];
+  assert.ok(raw, 'bundle template missing');
+  const template = JSON.parse(raw);
+  assert.match(template, /accept="image\/jpeg,image\/png,image\/webp"/);
+  assert.match(template, /查看收據/);
+  for (const field of ['expenseReceipt', 'expenseReceiptUrl', 'expenseSaving', 'expenseProgress', 'expenseError']) {
+    assert.match(app, new RegExp(`\\b${field}\\b`));
+  }
+  assert.match(app, /createExpenseWithReceipt/);
+  assert.match(app, /previewReceipt/);
+  assert.match(app, /deleteExpenseWithReceipt/);
+  assert.match(app, /URL\.createObjectURL/);
+  assert.match(app, /URL\.revokeObjectURL/);
+});
+
 test('bundled itinerary starts with overview and keeps meeting copy with CI110', async () => {
   const html = await readFile('index.html', 'utf8');
   const raw = html.match(/<script type="__bundler\/template">\s*([\s\S]*?)\s*<\/script>/)?.[1];

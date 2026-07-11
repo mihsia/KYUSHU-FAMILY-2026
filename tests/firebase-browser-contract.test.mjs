@@ -56,3 +56,27 @@ test('bridge copies shared BOT rate metadata into local storage', async () => {
     assert.match(source, new RegExp(`${field}: snapshot\\.data\\.${field}`));
   }
 });
+
+test('browser service exposes receipt-aware expense operations in safe order', async () => {
+  const source = await readFile('firebase-family.js', 'utf8');
+  for (const name of ['createExpenseWithReceipt', 'previewReceipt', 'deleteExpenseWithReceipt']) {
+    assert.match(source, new RegExp(`\\b${name}\\b`));
+  }
+  const createBody = source.match(/async function createExpenseWithReceipt[\s\S]*?\n}/)?.[0] || '';
+  assert.ok(createBody.indexOf('uploadBytesResumable') < createBody.indexOf('setDoc(expenseRef'));
+  assert.match(createBody, /deleteObject[\s\S]*catch/);
+  assert.match(createBody, /validateReceipt\(file\)/);
+  assert.match(createBody, /sanitizeReceiptFileName\(file\.name\)/);
+
+  const deleteBody = source.match(/async function deleteExpenseWithReceipt[\s\S]*?\n}/)?.[0] || '';
+  assert.ok(deleteBody.indexOf('deleteObject') < deleteBody.indexOf('deleteDoc'));
+  assert.match(deleteBody, /throw new Error\('收據刪除失敗，請重試'/);
+});
+
+test('generic state sync does not write or diff-delete expenses', async () => {
+  const service = await readFile('firebase-family.js', 'utf8');
+  const bridge = await readFile('firebase-bridge.js', 'utf8');
+  const saveState = service.match(/async function saveState\(input\) \{([\s\S]*?)\n}/)?.[1] || '';
+  assert.doesNotMatch(saveState, /syncCollection\('expenses'/);
+  assert.doesNotMatch(bridge, /lastCloudExpenses|syncExpenseChanges/);
+});
