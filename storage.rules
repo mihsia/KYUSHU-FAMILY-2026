@@ -1,0 +1,29 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAllowed() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+          'mihsia@gmail.com',
+          'pandora0119@gmail.com'
+        ];
+    }
+
+    function validUpload() {
+      return request.resource.size > 0
+        && request.resource.size <= 10 * 1024 * 1024
+        && (request.resource.contentType == 'application/pdf'
+          || request.resource.contentType.matches('image/(jpeg|png|webp)'));
+    }
+
+    match /trips/kyushu-2026/documents/{documentId}/{fileName} {
+      allow read, delete: if isAllowed();
+      allow create, update: if isAllowed() && validUpload();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

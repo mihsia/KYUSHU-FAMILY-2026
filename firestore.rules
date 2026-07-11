@@ -1,0 +1,132 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Fixed family trip. All writes have strict schemas and verified allow-list access.
+    function isAllowed() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+          'mihsia@gmail.com',
+          'pandora0119@gmail.com'
+        ];
+    }
+
+    function isAdmin() {
+      return isAllowed() && request.auth.token.email == 'mihsia@gmail.com';
+    }
+
+    function isValidTrip(data) {
+      return data.keys().hasOnly([
+          'rate', 'initialized', 'initializedBy', 'initializedAt', 'updatedAt'
+        ])
+        && data.rate is number && data.rate >= 0 && data.rate <= 100
+        && data.initialized is bool
+        && data.initializedBy is string && data.initializedBy.size() <= 128
+        && data.initializedAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function validAudit(data) {
+      return data.createdBy is string && data.createdBy.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedBy is string && data.updatedBy.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidListItem(data) {
+      return data.keys().hasOnly([
+          'text', 'checked', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'
+        ])
+        && data.text is string && data.text.size() > 0 && data.text.size() <= 300
+        && data.checked is bool && validAudit(data);
+    }
+
+    function isValidPacking(data) {
+      return data.keys().hasOnly(['checked', 'updatedBy', 'updatedAt'])
+        && data.checked is bool
+        && data.updatedBy is string && data.updatedBy.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidExpense(data) {
+      return data.keys().hasOnly([
+          'day', 'category', 'note', 'jpy', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'
+        ])
+        && data.day is int && data.day >= 0 && data.day <= 4
+        && data.category in ['餐飲', '交通', '購物', '門票', '其他']
+        && data.note is string && data.note.size() > 0 && data.note.size() <= 300
+        && data.jpy is number && data.jpy > 0 && data.jpy <= 10000000
+        && validAudit(data);
+    }
+
+    function isValidDocument(data) {
+      return data.keys().hasOnly([
+          'category', 'name', 'storagePath', 'contentType', 'size',
+          'createdBy', 'createdAt', 'updatedBy', 'updatedAt'
+        ])
+        && data.category in ['機票', '住宿', 'VJW', '保險', '其他']
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 240
+        && data.storagePath is string
+        && data.storagePath.matches('^trips/kyushu-2026/documents/[^/]+/[^/]+$')
+        && (data.contentType == 'application/pdf' || data.contentType.matches('^image/(jpeg|png|webp)$'))
+        && data.size is int && data.size > 0 && data.size <= 10 * 1024 * 1024
+        && validAudit(data);
+    }
+
+    function isValidMember(data, uid) {
+      return data.keys().hasOnly(['email', 'displayName', 'photoURL', 'role', 'lastLoginAt'])
+        && data.email == request.auth.token.email
+        && data.displayName is string && data.displayName.size() <= 100
+        && data.photoURL is string && data.photoURL.size() <= 2048
+        && data.role == (isAdmin() ? 'admin' : 'member')
+        && data.lastLoginAt is timestamp
+        && request.auth.uid == uid;
+    }
+
+    match /trips/kyushu-2026 {
+      allow read: if isAllowed();
+      allow create: if isAdmin() && isValidTrip(request.resource.data);
+      allow update: if isAllowed() && isValidTrip(request.resource.data)
+        && request.resource.data.initialized == resource.data.initialized
+        && request.resource.data.initializedBy == resource.data.initializedBy
+        && request.resource.data.initializedAt == resource.data.initializedAt;
+      allow delete: if false;
+
+      match /wishlist/{itemId} {
+        allow read: if isAllowed();
+        allow create, update: if isAllowed() && isValidListItem(request.resource.data);
+        allow delete: if isAllowed();
+      }
+      match /mustbuy/{itemId} {
+        allow read: if isAllowed();
+        allow create, update: if isAllowed() && isValidListItem(request.resource.data);
+        allow delete: if isAllowed();
+      }
+      match /packing/{itemId} {
+        allow read: if isAllowed();
+        allow create, update: if isAllowed() && isValidPacking(request.resource.data);
+        allow delete: if isAllowed();
+      }
+      match /expenses/{expenseId} {
+        allow read: if isAllowed();
+        allow create, update: if isAllowed() && isValidExpense(request.resource.data);
+        allow delete: if isAllowed();
+      }
+      match /documents/{documentId} {
+        allow read: if isAllowed();
+        allow create, update: if isAllowed() && isValidDocument(request.resource.data);
+        allow delete: if isAllowed();
+      }
+    }
+
+    match /members/{uid} {
+      allow read: if isAllowed() && request.auth.uid == uid;
+      allow create, update: if isAllowed() && isValidMember(request.resource.data, uid);
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
