@@ -51,7 +51,7 @@ const PACKING_GROUPS = [
 
 const DAYS = [
   {
-    id: 0, date: '7/13', dow: '一', color: '#2a8c82', region: '長崎',
+    id: 0, date: '7/13', dow: '一', color: '#2a8c82', region: '長崎・佐世保',
     title: '長崎海風與企鵝的夏日序曲',
     temp: '26–32°C', rain: '60%',
     weatherNote: '濕熱、午後雷陣雨可能。短袖＋帽子;稻佐山山頂夜間有風,帶薄外套。',
@@ -89,7 +89,7 @@ const DAYS = [
     highlights: ['有明海內海', 'Kumamon 主題列車', '熊本市區採買'],
     missions: ['找十個以上 Kumamon', '使用日文結帳', '記帳當日花費'],
     mustSee: ['彩繪車廂', '上通拱廊', '阿蘇火山口'],
-    mustEat: ['糯子', '馬肉可樂餅', '熊本拉麵'],
+    mustEat: ['糰子', '馬肉可樂餅', '熊本拉麵'],
     mustBuy: ['北熊本站限定商品'],
     familyPrompt: '親子問答：誰找到的 Kumamon 造型最特別？',
     changeNotice: null,

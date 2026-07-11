@@ -29,3 +29,9 @@ test('trip source contains approved flight copy, overview, and five-day guide co
     '今日看點', '今日任務', '本日三必', '旅行提醒', '行程異動',
   ]) assert.match(source, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 });
+
+test('approved D1 overview region and D2 must-eat copy stay exact', async () => {
+  const source = await readFile('src/app.jsx', 'utf8');
+  assert.match(source, /id: 0, date: '7\/13', dow: '一', color: '#2a8c82', region: '長崎・佐世保'/);
+  assert.match(source, /mustEat: \['糰子', '馬肉可樂餅', '熊本拉麵'\]/);
+});
