@@ -22,6 +22,14 @@ service firebase.storage {
       allow create, update: if isAllowed() && validUpload();
     }
 
+    match /trips/kyushu-2026/receipts/{expenseId}/{fileName} {
+      allow read, delete: if isAllowed();
+      allow create, update: if isAllowed()
+        && request.resource.size > 0
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

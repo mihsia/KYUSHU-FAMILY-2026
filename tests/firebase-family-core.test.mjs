@@ -8,6 +8,7 @@ import {
   normalizeLegacyStore,
   roleForEmail,
   sanitizeFileName,
+  validateReceipt,
   validateUpload,
 } from '../firebase-family-core.js';
 
@@ -29,6 +30,14 @@ test('validates supported uploads up to 10 MB', () => {
   assert.deepEqual(validateUpload({ size: MAX_FILE_SIZE, type: 'application/pdf' }), { ok: true });
   assert.deepEqual(validateUpload({ size: MAX_FILE_SIZE + 1, type: 'application/pdf' }), { ok: false, error: '檔案超過 10 MB' });
   assert.deepEqual(validateUpload({ size: 10, type: 'text/html' }), { ok: false, error: '只允許 PDF、JPEG、PNG 或 WebP' });
+});
+
+test('receipt validation accepts only non-empty JPEG PNG or WebP up to 10 MB', () => {
+  assert.deepEqual(validateReceipt({ size: 1, type: 'image/jpeg' }), { ok: true });
+  assert.deepEqual(validateReceipt({ size: MAX_FILE_SIZE, type: 'image/webp' }), { ok: true });
+  assert.deepEqual(validateReceipt({ size: 0, type: 'image/png' }), { ok: false, error: '收據檔案不可為空' });
+  assert.deepEqual(validateReceipt({ size: 4, type: 'application/pdf' }), { ok: false, error: '收據只允許 JPEG、PNG 或 WebP' });
+  assert.deepEqual(validateReceipt({ size: MAX_FILE_SIZE + 1, type: 'image/png' }), { ok: false, error: '收據超過 10 MB' });
 });
 
 test('normalizes legacy state without mutating it', () => {

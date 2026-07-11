@@ -7,6 +7,7 @@ export const ALLOWED_EMAILS = Object.freeze([
 
 const DOCUMENT_CATEGORIES = Object.freeze(['機票', '住宿', 'VJW', '保險', '其他']);
 const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
+const RECEIPT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 function cleanEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -40,6 +41,15 @@ export function validateUpload(file) {
   }
   if (!ALLOWED_TYPES.has(String(file.type || '').toLowerCase())) {
     return { ok: false, error: '只允許 PDF、JPEG、PNG 或 WebP' };
+  }
+  return { ok: true };
+}
+
+export function validateReceipt(file) {
+  if (!file || Number(file.size) <= 0) return { ok: false, error: '收據檔案不可為空' };
+  if (Number(file.size) > MAX_FILE_SIZE) return { ok: false, error: '收據超過 10 MB' };
+  if (!RECEIPT_TYPES.has(String(file.type || '').toLowerCase())) {
+    return { ok: false, error: '收據只允許 JPEG、PNG 或 WebP' };
   }
   return { ok: true };
 }
