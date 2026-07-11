@@ -114,26 +114,24 @@ function legacyStore() {
 
 async function initializeTripIfNeeded() {
   if (roleForEmail(currentUser.email) !== 'admin') return;
+  const source = legacyStore();
   const claimed = await runTransaction(db, async (transaction) => {
     const root = await transaction.get(tripRef());
     if (root.exists()) return false;
     transaction.set(tripRef(), {
-      rate: legacyStore().rate,
+      rate: source.rate,
       initialized: true,
       initializedBy: currentUser.uid,
       initializedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+    source.wishlist.forEach((item, index) => transaction.set(doc(tripCollection('wishlist'), item.id || `w${index}`), listItem(item)));
+    source.mustbuy.forEach((item, index) => transaction.set(doc(tripCollection('mustbuy'), item.id || `m${index}`), listItem(item)));
+    Object.entries(source.packingChecked).forEach(([id, checked]) => transaction.set(doc(tripCollection('packing'), id), { checked: !!checked, ...audit() }));
+    source.expenses.forEach((item, index) => transaction.set(doc(tripCollection('expenses'), item.id || `e${index}`), expenseItem(item)));
     return true;
   });
   if (!claimed) return;
-  const source = legacyStore();
-  const batch = writeBatch(db);
-  source.wishlist.forEach((item, index) => batch.set(doc(tripCollection('wishlist'), item.id || `w${index}`), listItem(item)));
-  source.mustbuy.forEach((item, index) => batch.set(doc(tripCollection('mustbuy'), item.id || `m${index}`), listItem(item)));
-  Object.entries(source.packingChecked).forEach(([id, checked]) => batch.set(doc(tripCollection('packing'), id), { checked: !!checked, ...audit() }));
-  source.expenses.forEach((item, index) => batch.set(doc(tripCollection('expenses'), item.id || `e${index}`), expenseItem(item)));
-  await batch.commit();
   for (const [category, files] of Object.entries(source.documents)) {
     for (const file of files) {
       if (!file.dataUrl) continue;

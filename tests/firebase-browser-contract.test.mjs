@@ -20,3 +20,12 @@ test('public config targets the requested Firebase app', async () => {
   assert.match(source, /1:587703256348:web:008781d9569644555126d9/);
   assert.doesNotMatch(source, /private_key|client_email/);
 });
+
+test('first migration writes root and structured data in one transaction', async () => {
+  const source = await readFile('firebase-family.js', 'utf8');
+  const migration = source.match(/async function initializeTripIfNeeded\(\) \{([\s\S]*?)\n\}/)?.[1] || '';
+  assert.match(migration, /runTransaction/);
+  assert.match(migration, /transaction\.set\(doc\(tripCollection\('wishlist'\)/);
+  assert.match(migration, /transaction\.set\(doc\(tripCollection\('expenses'\)/);
+  assert.doesNotMatch(migration, /batch\.commit/);
+});
