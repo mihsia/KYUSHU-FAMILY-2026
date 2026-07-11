@@ -271,6 +271,9 @@ class Component extends DCLogic {
         updatedAt: saved.rateUpdatedAt || null,
         updatedBy: String(saved.rateUpdatedBy || ''),
       },
+      rateDraft: String(Number(saved.rate) > 0 ? Number(saved.rate) : 21.4),
+      rateError: '',
+      rateSaving: false,
       jpyInput: '',
       twdInput: '',
     };
@@ -576,14 +579,32 @@ class Component extends DCLogic {
         }), () => this.persist());
       },
       expenseByDay,
-      rateInput: String(this.state.rate),
+      rateInput: this.state.rateDraft,
       ratePerJpy: (this.state.rate / 100).toFixed(4),
       rateUpdatedLabel,
+      rateError: this.state.rateError,
+      rateSaveLabel: this.state.rateSaving ? '儲存中…' : '儲存匯率',
       onRateInput: (e) => {
         const v = e.target.value.replace(/[^0-9.]/g, '');
-        const rate = Number(v);
-        if (!Number.isFinite(rate) || rate <= 0 || rate > 100) return;
-        this.setState({ rate }, () => this.persist());
+        this.setState({ rateDraft: v, rateError: '' });
+      },
+      saveRate: async () => {
+        const rate = Number(this.state.rateDraft);
+        if (!Number.isFinite(rate) || rate <= 0 || rate > 100) {
+          this.setState({ rateError: '請輸入 0 到 100 之間的正數匯率' });
+          return;
+        }
+        this.setState({ rateSaving: true, rateError: '' });
+        try {
+          if (window.KyushuFamily?.saveRate) {
+            await window.KyushuFamily.saveRate(rate);
+            this.setState({ rateSaving: false });
+          } else {
+            this.setState({ rate, rateSaving: false }, () => this.persist());
+          }
+        } catch (error) {
+          this.setState({ rateSaving: false, rateError: error?.message || '匯率儲存失敗，請重試' });
+        }
       },
       jpyInput: this.state.jpyInput,
       onJpyInput: (e) => {

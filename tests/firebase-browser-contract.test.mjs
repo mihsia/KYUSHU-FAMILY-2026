@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 test('browser service exposes auth, sync, and document operations', async () => {
   const source = await readFile('firebase-family.js', 'utf8');
-  for (const name of ['start', 'signIn', 'signOut', 'subscribe', 'saveState', 'uploadDocument', 'deleteDocument', 'getStatus']) {
+  for (const name of ['start', 'signIn', 'signOut', 'subscribe', 'saveState', 'saveRate', 'uploadDocument', 'deleteDocument', 'getStatus']) {
     assert.match(source, new RegExp(`${name}\\s*[:(]`));
   }
   for (const firebaseApi of ['onAuthStateChanged', 'onSnapshot', 'runTransaction', 'serverTimestamp', 'uploadBytesResumable', 'deleteObject']) {
@@ -35,6 +35,19 @@ test('browser service persists BOT rate audit fields', async () => {
   assert.match(source, /rateSource:\s*'BOT cash sell'/);
   assert.match(source, /rateUpdatedAt:\s*serverTimestamp\(\)/);
   assert.match(source, /rateUpdatedBy:\s*currentUser\.uid/);
+});
+
+test('only explicit saveRate writes root rate audit metadata', async () => {
+  const source = await readFile('firebase-family.js', 'utf8');
+  const saveState = source.match(/async function saveState\(input\) \{([\s\S]*?)\n\}/)?.[1] || '';
+  const saveRate = source.match(/async function saveRate\(rate\) \{([\s\S]*?)\n\}/)?.[1] || '';
+  assert.doesNotMatch(saveState, /setDoc\(tripRef\(\)/);
+  assert.doesNotMatch(saveState, /rateUpdatedAt|rateUpdatedBy|rateSource/);
+  assert.match(saveRate, /setDoc\(tripRef\(\)/);
+  assert.match(saveRate, /rateSource:\s*'BOT cash sell'/);
+  assert.match(saveRate, /rateUpdatedAt:\s*serverTimestamp\(\)/);
+  assert.match(saveRate, /rateUpdatedBy:\s*currentUser\.uid/);
+  assert.match(saveRate, /Number\.isFinite/);
 });
 
 test('bridge copies shared BOT rate metadata into local storage', async () => {

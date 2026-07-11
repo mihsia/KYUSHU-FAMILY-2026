@@ -51,6 +51,13 @@ test('home places converter second and shows the BOT manual rate workflow', asyn
     assert.ok(position > previous, `${action} is out of order`);
     previous = position;
   });
+  const labels = [...home.matchAll(/font-size: 18px; font-weight: 900; color: #111;">([^<]+)<\/span>/g)].map((match) => match[1]);
+  assert.deepEqual(labels, [
+    '行程', '匯率換算', '美食購物指南', '願望清單', '必買清單',
+    '行李清單', '記帳', '文件', '備忘資訊',
+  ]);
+  const numbers = [...home.matchAll(/width: 20px;">(\d{2})<\/div>/g)].map((match) => match[1]);
+  assert.deepEqual(numbers, ['01', '02', '03', '04', '05', '06', '07', '08', '09']);
   for (const copy of [
     'https://rate.bot.com.tw/xrt?Lang=zh-TW',
     '臺灣銀行日圓現金賣出價',
@@ -63,6 +70,16 @@ test('home places converter second and shows the BOT manual rate workflow', asyn
 test('rate UI keeps shared metadata and only persists a valid positive rate', async () => {
   const source = await readFile('src/app.jsx', 'utf8');
   assert.match(source, /rateMeta:\s*\{/);
+  assert.match(source, /rateDraft:\s*String\(/);
+  assert.match(source, /saveRate:\s*async \(\) =>/);
+  assert.match(source, /window\.KyushuFamily\.saveRate\(rate\)/);
   assert.match(source, /ratePerJpy:\s*\(this\.state\.rate \/ 100\)\.toFixed\(4\)/);
-  assert.match(source, /if \(!Number\.isFinite\(rate\) \|\| rate <= 0 \|\| rate > 100\) return;/);
+  assert.match(source, /rateError:/);
+  assert.doesNotMatch(source, /onRateInput:[\s\S]{0,220}this\.persist\(\)/);
+
+  const html = await readFile('index.html', 'utf8');
+  const template = JSON.parse(html.match(/<script type="__bundler\/template">\s*([\s\S]*?)\s*<\/script>/)[1]);
+  assert.match(template, /sc-camel-on-click="\{\{ saveRate \}\}"/);
+  assert.match(template, />儲存匯率</);
+  assert.match(template, /\{\{ rateError \}\}/);
 });

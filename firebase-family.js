@@ -211,13 +211,6 @@ async function saveState(input) {
   const state = normalizeLegacyStore(input);
   emit({ phase: 'syncing', message: '同步中', error: null });
   try {
-    await setDoc(tripRef(), {
-      rate: state.rate,
-      rateSource: 'BOT cash sell',
-      rateUpdatedAt: serverTimestamp(),
-      rateUpdatedBy: currentUser.uid,
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
     await Promise.all([
       syncCollection('wishlist', state.wishlist, listItem),
       syncCollection('mustbuy', state.mustbuy, listItem),
@@ -225,6 +218,25 @@ async function saveState(input) {
       syncCollection('packing', Object.entries(state.packingChecked).map(([id, checked]) => ({ id, checked })), (item) => ({ checked: !!item.checked, ...audit() })),
     ]);
     emit({ phase: 'ready', message: '已同步', error: null });
+  } catch (error) {
+    handleError(error);
+    throw error;
+  }
+}
+
+async function saveRate(rate) {
+  if (!currentUser) throw new Error('請先登入');
+  rate = Number(rate);
+  if (!Number.isFinite(rate) || rate <= 0 || rate > 100) throw new Error('請輸入 0 到 100 之間的正數匯率');
+  emit({ phase: 'syncing', message: '正在儲存匯率', error: null });
+  try {
+    await setDoc(tripRef(), {
+      rate,
+      rateSource: 'BOT cash sell',
+      rateUpdatedAt: serverTimestamp(),
+      rateUpdatedBy: currentUser.uid,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
   } catch (error) {
     handleError(error);
     throw error;
@@ -324,6 +336,7 @@ window.KyushuFamily = Object.freeze({
   signOut,
   subscribe,
   saveState,
+  saveRate,
   uploadDocument,
   deleteDocument,
   previewDocument,
