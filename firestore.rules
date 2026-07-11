@@ -66,7 +66,8 @@ service cloud.firestore {
     }
 
     function isValidExpense(data, expenseId) {
-      return data.keys().hasOnly([
+      return expenseId.matches('^[A-Za-z0-9_-]+$')
+        && data.keys().hasOnly([
           'day', 'category', 'note', 'jpy', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt',
           'receiptPath', 'receiptName', 'receiptType', 'receiptSize'
         ])

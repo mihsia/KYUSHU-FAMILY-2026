@@ -41,6 +41,7 @@ test('Firestore expense receipt fields are atomic, image-only, and tied to the e
   const rules = await readFile('firestore.rules', 'utf8');
   assert.match(rules, /function hasNoReceipt\(data\)/);
   assert.match(rules, /function hasValidReceipt\(data, expenseId\)/);
+  assert.match(rules, /expenseId\.matches\('\^\[A-Za-z0-9_-\]\+\$'\)/);
   assert.match(rules, /hasAll\(\['receiptPath', 'receiptName', 'receiptType', 'receiptSize'\]\)/);
   assert.ok(rules.includes("^trips/kyushu-2026/receipts/' + expenseId + '/[A-Za-z0-9._-]+$"));
   assert.match(rules, /data\.receiptType\.matches\('\^image\/\(jpeg\|png\|webp\)\$'\)/);
