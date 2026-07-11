@@ -41,3 +41,21 @@ test('normalizes legacy state without mutating it', () => {
   assert.deepEqual(result.documents, { 機票: [], 住宿: [], VJW: [], 保險: [], 其他: [] });
   assert.deepEqual(source, { rate: 22, wishlist: [{ id: 'w1', text: '藥妝' }] });
 });
+
+test('normalizes BOT rate metadata with a safe fallback', () => {
+  const result = normalizeLegacyStore({
+    rate: 21.4,
+    rateSource: 'BOT cash sell',
+    rateUpdatedBy: 'u1',
+  });
+  assert.equal(result.rate, 21.4);
+  assert.equal(result.rateSource, 'BOT cash sell');
+  assert.equal(result.rateUpdatedAt, null);
+  assert.equal(result.rateUpdatedBy, 'u1');
+
+  const fallback = normalizeLegacyStore({ rateSource: 'other' });
+  assert.equal(fallback.rate, 21.4);
+  assert.equal(fallback.rateSource, 'BOT cash sell');
+  assert.equal(fallback.rateUpdatedAt, null);
+  assert.equal(fallback.rateUpdatedBy, '');
+});

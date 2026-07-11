@@ -27,3 +27,12 @@ test('Firebase config enables Google sign-in for localhost and GitHub Pages', as
   assert.ok(config.auth.providers.googleSignIn.authorizedRedirectUris.includes('http://localhost'));
   assert.ok(config.auth.providers.googleSignIn.authorizedRedirectUris.includes('https://mihsia.github.io'));
 });
+
+test('Firestore root schema requires BOT rate audit metadata', async () => {
+  const rules = await readFile('firestore.rules', 'utf8');
+  assert.match(rules, /'rateSource', 'rateUpdatedAt', 'rateUpdatedBy'/);
+  assert.match(rules, /data\.rate > 0 && data\.rate <= 100/);
+  assert.match(rules, /data\.rateSource == 'BOT cash sell'/);
+  assert.match(rules, /data\.rateUpdatedAt is timestamp/);
+  assert.match(rules, /data\.rateUpdatedBy is string && data\.rateUpdatedBy\.size\(\) > 0/);
+});

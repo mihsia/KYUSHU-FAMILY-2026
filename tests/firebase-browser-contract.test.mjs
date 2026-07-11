@@ -29,3 +29,17 @@ test('first migration writes root and structured data in one transaction', async
   assert.match(migration, /transaction\.set\(doc\(tripCollection\('expenses'\)/);
   assert.doesNotMatch(migration, /batch\.commit/);
 });
+
+test('browser service persists BOT rate audit fields', async () => {
+  const source = await readFile('firebase-family.js', 'utf8');
+  assert.match(source, /rateSource:\s*'BOT cash sell'/);
+  assert.match(source, /rateUpdatedAt:\s*serverTimestamp\(\)/);
+  assert.match(source, /rateUpdatedBy:\s*currentUser\.uid/);
+});
+
+test('bridge copies shared BOT rate metadata into local storage', async () => {
+  const source = await readFile('firebase-bridge.js', 'utf8');
+  for (const field of ['rateSource', 'rateUpdatedAt', 'rateUpdatedBy']) {
+    assert.match(source, new RegExp(`${field}: snapshot\\.data\\.${field}`));
+  }
+});

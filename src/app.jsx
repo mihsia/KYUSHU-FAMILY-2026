@@ -236,6 +236,14 @@ function saveStore(data) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) {}
 }
 
+function formatRateUpdatedAt(value) {
+  if (!value) return '';
+  const seconds = Number(value.seconds ?? value._seconds);
+  const date = Number.isFinite(seconds) ? new Date(seconds * 1000) : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('zh-TW', { hour12: false });
+}
+
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -257,7 +265,12 @@ class Component extends DCLogic {
       expenseCat: '餐飲',
       expenseNote: '',
       expenseJpy: '',
-      rate: saved.rate || 21.4,
+      rate: Number(saved.rate) > 0 ? Number(saved.rate) : 21.4,
+      rateMeta: {
+        source: saved.rateSource === 'BOT cash sell' ? saved.rateSource : 'BOT cash sell',
+        updatedAt: saved.rateUpdatedAt || null,
+        updatedBy: String(saved.rateUpdatedBy || ''),
+      },
       jpyInput: '',
       twdInput: '',
     };
@@ -271,6 +284,9 @@ class Component extends DCLogic {
       documents: this.state.documents,
       expenses: this.state.expenses,
       rate: this.state.rate,
+      rateSource: this.state.rateMeta.source,
+      rateUpdatedAt: this.state.rateMeta.updatedAt,
+      rateUpdatedBy: this.state.rateMeta.updatedBy,
     });
   }
 
@@ -471,6 +487,11 @@ class Component extends DCLogic {
       return { label: d.date + '（' + d.dow + '）· ' + d.region, color: d.color, entries, subtotal: subtotal.toLocaleString(), empty: entries.length === 0 };
     });
 
+    const rateUpdatedAt = formatRateUpdatedAt(this.state.rateMeta.updatedAt);
+    const rateUpdatedLabel = rateUpdatedAt
+      ? `最近更新：${rateUpdatedAt}${this.state.rateMeta.updatedBy ? `（${this.state.rateMeta.updatedBy}）` : ''}`
+      : '尚無更新紀錄';
+
     return {
       isHome: view === 'home',
       isItinerary: view === 'itinerary',
@@ -556,9 +577,12 @@ class Component extends DCLogic {
       },
       expenseByDay,
       rateInput: String(this.state.rate),
+      ratePerJpy: (this.state.rate / 100).toFixed(4),
+      rateUpdatedLabel,
       onRateInput: (e) => {
         const v = e.target.value.replace(/[^0-9.]/g, '');
-        const rate = Number(v) || 0;
+        const rate = Number(v);
+        if (!Number.isFinite(rate) || rate <= 0 || rate > 100) return;
         this.setState({ rate }, () => this.persist());
       },
       jpyInput: this.state.jpyInput,

@@ -35,3 +35,34 @@ test('approved D1 overview region and D2 must-eat copy stay exact', async () => 
   assert.match(source, /id: 0, date: '7\/13', dow: '一', color: '#2a8c82', region: '長崎・佐世保'/);
   assert.match(source, /mustEat: \['糰子', '馬肉可樂餅', '熊本拉麵'\]/);
 });
+
+test('home places converter second and shows the BOT manual rate workflow', async () => {
+  const html = await readFile('index.html', 'utf8');
+  const raw = html.match(/<script type="__bundler\/template">\s*([\s\S]*?)\s*<\/script>/)?.[1];
+  const template = JSON.parse(raw);
+  const home = template.slice(template.indexOf('<!-- ================= HOME ================= -->'), template.indexOf('<!-- ================= ITINERARY ================= -->'));
+  const orderedActions = [
+    'openItinerary', 'openConverter', 'openFood', 'openWishlist', 'openMustbuy',
+    'openPacking', 'openExpense', 'openDocuments', 'openNotes',
+  ];
+  let previous = -1;
+  orderedActions.forEach((action) => {
+    const position = home.indexOf(action);
+    assert.ok(position > previous, `${action} is out of order`);
+    previous = position;
+  });
+  for (const copy of [
+    'https://rate.bot.com.tw/xrt?Lang=zh-TW',
+    '臺灣銀行日圓現金賣出價',
+    '1 日圓 ≈ {{ ratePerJpy }} 新臺幣',
+    '{{ rateUpdatedLabel }}',
+    '牌價僅供參考，實際交易以交易當下為準',
+  ]) assert.ok(template.includes(copy), `missing converter copy: ${copy}`);
+});
+
+test('rate UI keeps shared metadata and only persists a valid positive rate', async () => {
+  const source = await readFile('src/app.jsx', 'utf8');
+  assert.match(source, /rateMeta:\s*\{/);
+  assert.match(source, /ratePerJpy:\s*\(this\.state\.rate \/ 100\)\.toFixed\(4\)/);
+  assert.match(source, /if \(!Number\.isFinite\(rate\) \|\| rate <= 0 \|\| rate > 100\) return;/);
+});

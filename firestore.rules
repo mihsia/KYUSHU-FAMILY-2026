@@ -17,9 +17,13 @@ service cloud.firestore {
 
     function isValidTrip(data) {
       return data.keys().hasOnly([
-          'rate', 'initialized', 'initializedBy', 'initializedAt', 'updatedAt'
+          'rate', 'rateSource', 'rateUpdatedAt', 'rateUpdatedBy',
+          'initialized', 'initializedBy', 'initializedAt', 'updatedAt'
         ])
-        && data.rate is number && data.rate >= 0 && data.rate <= 100
+        && data.rate is number && data.rate > 0 && data.rate <= 100
+        && data.rateSource == 'BOT cash sell'
+        && data.rateUpdatedAt is timestamp
+        && data.rateUpdatedBy is string && data.rateUpdatedBy.size() > 0 && data.rateUpdatedBy.size() <= 128
         && data.initialized is bool
         && data.initializedBy is string && data.initializedBy.size() <= 128
         && data.initializedAt is timestamp

@@ -37,7 +37,17 @@ import {
 
 const COLLECTIONS = ['wishlist', 'mustbuy', 'packing', 'expenses', 'documents'];
 const listeners = new Set();
-const cloud = { rate: 21.4, wishlist: [], mustbuy: [], packingChecked: {}, expenses: [], documents: {} };
+const cloud = {
+  rate: 21.4,
+  rateSource: 'BOT cash sell',
+  rateUpdatedAt: null,
+  rateUpdatedBy: '',
+  wishlist: [],
+  mustbuy: [],
+  packingChecked: {},
+  expenses: [],
+  documents: {},
+};
 let app;
 let auth;
 let db;
@@ -120,6 +130,9 @@ async function initializeTripIfNeeded() {
     if (root.exists()) return false;
     transaction.set(tripRef(), {
       rate: source.rate,
+      rateSource: 'BOT cash sell',
+      rateUpdatedAt: serverTimestamp(),
+      rateUpdatedBy: currentUser.uid,
       initialized: true,
       initializedBy: currentUser.uid,
       initializedAt: serverTimestamp(),
@@ -148,7 +161,13 @@ async function initializeTripIfNeeded() {
 function attachSnapshots() {
   clearSubscriptions();
   unsubs.push(onSnapshot(tripRef(), (snapshot) => {
-    if (snapshot.exists()) cloud.rate = Number(snapshot.data().rate) || 21.4;
+    if (snapshot.exists()) {
+      const root = snapshot.data();
+      cloud.rate = Number(root.rate) || 21.4;
+      cloud.rateSource = root.rateSource === 'BOT cash sell' ? root.rateSource : 'BOT cash sell';
+      cloud.rateUpdatedAt = root.rateUpdatedAt || null;
+      cloud.rateUpdatedBy = String(root.rateUpdatedBy || '');
+    }
     emit({ phase: 'ready', message: '已同步', error: null });
   }, handleError));
   for (const name of COLLECTIONS) {
@@ -192,7 +211,13 @@ async function saveState(input) {
   const state = normalizeLegacyStore(input);
   emit({ phase: 'syncing', message: '同步中', error: null });
   try {
-    await setDoc(tripRef(), { rate: state.rate, updatedAt: serverTimestamp() }, { merge: true });
+    await setDoc(tripRef(), {
+      rate: state.rate,
+      rateSource: 'BOT cash sell',
+      rateUpdatedAt: serverTimestamp(),
+      rateUpdatedBy: currentUser.uid,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
     await Promise.all([
       syncCollection('wishlist', state.wishlist, listItem),
       syncCollection('mustbuy', state.mustbuy, listItem),

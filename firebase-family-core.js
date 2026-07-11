@@ -59,5 +59,8 @@ export function normalizeLegacyStore(input = {}) {
     documents,
     expenses: Array.isArray(source.expenses) ? source.expenses.map((item) => ({ ...item })) : [],
     rate: Number.isFinite(Number(source.rate)) ? Number(source.rate) : 21.4,
+    rateSource: source.rateSource === 'BOT cash sell' ? source.rateSource : 'BOT cash sell',
+    rateUpdatedAt: source.rateUpdatedAt || null,
+    rateUpdatedBy: String(source.rateUpdatedBy || ''),
   };
 }
