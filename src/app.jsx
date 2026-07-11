@@ -1,5 +1,8 @@
 
 const STORE_KEY = 'kyushu-family-app-v1';
+const OUTBOUND_MEETING_TITLE = '去程集合｜7/13（一）凌晨 04:20';
+const OUTBOUND_MEETING_PLACE = '桃園機場第二航廈・華航 7 號櫃台';
+const ITINERARY_SECTION_LABELS = ['今日看點', '今日任務', '本日三必', '旅行提醒', '行程異動'];
 
 const DEFAULT_WISHLIST = [
   { id: 'w1', text: '弓張之丘飯店 露天溫泉夜景', checked: false },
@@ -61,12 +64,18 @@ const DAYS = [
       { time: '傍晚', color: '#5a7ab8', title: '稻佐山斜坡車・夜景展望台' },
       { time: '夜', color: '#9a5ab8', title: '弓張之丘飯店・自助餐＋溫泉' },
     ],
-    alert: null,
-    hotel: { name: '弓張之丘飯店', note: '弓張岳山頂南歐風度假飯店,眺望九十九島與佐世保港夜景;山頂無超商,飲料零食下午先買齊帶上山。' },
+    highlights: ['8 種、約 140 隻企鵝', '稻佐山 333 公尺高夜景'],
+    missions: ['找出三種企鵝', '找造船廠吊車', '學會「こんばんは」'],
+    mustSee: ['水中飛翔', '企鵝海灘', '稻佐山夜景'],
+    mustEat: ['長崎強棒麵', '佐賀風味餐', '飯店自助餐'],
+    mustBuy: ['企鵝限定商品'],
+    familyPrompt: '親子問答：今天看到的企鵝，哪一種最像在水中飛行？',
+    changeNotice: null,
+    hotel: { name: '弓張之丘飯店', note: '弓張岳山頂南歐風度假飯店,眺望九十九島與佐世保港夜景;山頂無超商,飲料零食下午先買齊帶上山。', address: '長崎縣佐世保市鵜渡越町 510', phone: '0956-26-0800' },
   },
   {
     id: 1, date: '7/14', dow: '二', color: '#f2a33d', region: '熊本',
-    title: '穿越有明海,遇見萌熊列車',
+    title: '穿越有明海，遇見萌熊列車',
     temp: '21–34°C', rain: '50%',
     weatherNote: '熊本市區內陸悶熱注意補水;阿蘇海拔較高夜晚偏涼,薄長袖備用。',
     activities: [
@@ -77,12 +86,18 @@ const DAYS = [
       { time: '下午', color: '#5a7ab8', title: '上通商店街 自由活動' },
       { time: '夜', color: '#9a5ab8', title: '阿蘇溫泉飯店・自助餐' },
     ],
-    alert: null,
-    hotel: { name: '龜之井阿蘇公園度假村', note: '坐落於世界最大級阿蘇破火山口之中,溫泉大浴場＋室內 SPA(帶泳衣可玩水);宵夜請進飯店前先買。' },
+    highlights: ['有明海內海', 'Kumamon 主題列車', '熊本市區採買'],
+    missions: ['找十個以上 Kumamon', '使用日文結帳', '記帳當日花費'],
+    mustSee: ['彩繪車廂', '上通拱廊', '阿蘇火山口'],
+    mustEat: ['糯子', '馬肉可樂餅', '熊本拉麵'],
+    mustBuy: ['北熊本站限定商品'],
+    familyPrompt: '親子問答：誰找到的 Kumamon 造型最特別？',
+    changeNotice: null,
+    hotel: { name: '龜之井阿蘇公園度假村', note: '坐落於世界最大級阿蘇破火山口之中,溫泉大浴場＋室內 SPA(帶泳衣可玩水);宵夜請進飯店前先買。', address: '熊本縣阿蘇市黑川 1230', phone: '0967-34-0811' },
   },
   {
     id: 2, date: '7/15', dow: '三', color: '#e8442e', region: '由布院·別府',
-    title: '由布院之森,開往森林深處的列車',
+    title: '由布院之森，開往森林深處的列車',
     temp: '22–31°C', rain: '40%',
     weatherNote: '山區早晚涼爽、白天日照強;散策日防曬＋好走鞋,摺疊傘必帶。',
     activities: [
@@ -92,8 +107,14 @@ const DAYS = [
       { time: '下午', color: '#5a7ab8', title: '別府海地獄參觀' },
       { time: '夜', color: '#9a5ab8', title: '別府清風・自助餐＋海景溫泉' },
     ],
-    alert: '別府空中纜車因設備更新工程 6/26–7/17 停駛,改參觀海地獄,並退費(大人 1,000 円/兒童 600 円)。',
-    hotel: { name: '大江戶溫泉物語 別府清風', note: '別府灣海濱展望溫泉,位於北濱鬧區,步行 5 分內有超商,JR 別府站步行 10 分可補貨。' },
+    highlights: ['金鱗湖', '由布院之森觀光列車', '海地獄'],
+    missions: ['金鱗湖合照', '車上蓋紀念章', '品嘗溫泉蛋或地獄蒸布丁'],
+    mustSee: ['湖面倒影', '列車進站', '海地獄'],
+    mustEat: ['Milch 起司蛋糕', '溫泉蛋', '地獄蒸布丁'],
+    mustBuy: ['B-speak 蛋糕捲', '由布院限定雜貨'],
+    familyPrompt: '親子問答：由布院之森的車廂，哪個細節最像森林？',
+    changeNotice: '別府空中纜車因設備更新停駛，改參觀海地獄並依原公告退費。',
+    hotel: { name: '大江戶溫泉物語 別府清風', note: '別府灣海濱展望溫泉,位於北濱鬧區,步行 5 分內有超商,JR 別府站步行 10 分可補貨。', address: '大分縣別府市北濱 2-12-21', phone: '050-3615-3456' },
   },
   {
     id: 3, date: '7/16', dow: '四', color: '#5a7ab8', region: '太宰府·福岡',
@@ -108,8 +129,14 @@ const DAYS = [
       { time: '晚', color: '#9a5ab8', title: '三大蟹鍋物吃到飽＋酒水暢飲' },
       { time: '夜', color: '#9a5ab8', title: '福岡大倉飯店｜加碼:屋台・一蘭' },
     ],
-    alert: '伴手禮務必今天買齊(D5 時間極少)。晚上飯店旁唐吉訶德 24H 最後掃貨。',
-    hotel: { name: '福岡大倉飯店', note: '地鐵中洲川端站直結,步行 2 分到中洲;5 分到唐吉訶德中洲店(24H 可免稅)。' },
+    highlights: ['九州自然野生動物園', '叢林巴士', '飛梅', '御神牛', '1:1 鋼彈'],
+    missions: ['記住兩種動物', '摸御神牛許願', '與鋼彈同比例合照'],
+    mustSee: ['叢林巴士近距離動物', '太宰府天滿宮', '1:1 鋼彈'],
+    mustEat: ['飛梅御膳', '梅枝餅', '三大蟹鍋物'],
+    mustBuy: ['福岡伴手禮', 'LALAPORT 限定商品'],
+    familyPrompt: '旅行提醒：主要伴手禮在本日完成，避免 D5 時間不足。',
+    changeNotice: null,
+    hotel: { name: '福岡大倉飯店', note: '地鐵中洲川端站直結,步行 2 分到中洲;5 分到唐吉訶德中洲店(24H 可免稅)。', address: '福岡縣福岡市博多區下川端町 3-2', phone: '092-262-1111' },
   },
   {
     id: 4, date: '7/17', dow: '五', color: '#9a5ab8', region: '福岡→台灣',
@@ -123,9 +150,20 @@ const DAYS = [
       { time: '11:00', color: '#5a7ab8', title: 'CI111 起飛 ✈' },
       { time: '12:30', color: '#9a5ab8', title: '抵達桃園,回溫暖的家 🏠' },
     ],
-    alert: '免稅品原則上不可在日本境內拆封;出境時海關可能掃護照查核,請放在可出示的地方。',
+    highlights: ['旅途回顧', '福岡機場最後採買', 'CI111 返程'],
+    missions: ['確認免稅品完整未拆', '挑一份最能代表九州的紀念品', '回家後分享一則旅行故事'],
+    mustSee: ['福岡機場飛機', '九州夏日回憶', '抵達桃園'],
+    mustEat: ['早餐', '機場甜點', '回台後的家鄉味'],
+    mustBuy: ['博多通りもん', 'めんべい', 'ひよ子', '草莓甜點', '明太子'],
+    familyPrompt: '旅行提醒：免稅品依規定保存並放在可出示處；回家後一起整理五日照片。',
+    changeNotice: null,
     hotel: null,
   },
+];
+
+const ITINERARY_TABS = [
+  { key: 'overview', label: '總覽', color: '#111111' },
+  ...DAYS.map((day) => ({ key: day.id, label: day.date, color: day.color })),
 ];
 
 const MAP_STOPS = [
@@ -206,7 +244,7 @@ class Component extends DCLogic {
     this.mapInited = false;
     this.state = {
       view: 'home',
-      dayIndex: 0,
+      itineraryTab: 'overview',
       foodTab: 'food',
       wishlist: saved.wishlist || DEFAULT_WISHLIST,
       wishlistDraft: '',
@@ -371,16 +409,22 @@ class Component extends DCLogic {
       }),
     }));
 
-    const currentDay = DAYS[this.state.dayIndex];
-    const dateTabs = DAYS.map(d => {
-      const active = d.id === this.state.dayIndex;
-      return {
-        date: d.date,
-        onClick: () => this.setState({ dayIndex: d.id }),
-        bg: active ? d.color : 'transparent',
-        textColor: active ? '#fff' : '#9ecbc2',
-      };
-    });
+    const itineraryTabs = ITINERARY_TABS.map((tab) => ({
+      label: tab.label,
+      onClick: () => this.setState({ itineraryTab: tab.key }),
+      bg: this.state.itineraryTab === tab.key ? tab.color : '#16323a',
+      color: this.state.itineraryTab === tab.key ? '#fff' : '#b9ddd6',
+    }));
+    const showOverview = this.state.itineraryTab === 'overview';
+    const showDay = !showOverview;
+    const currentDay = showOverview ? null : DAYS[this.state.itineraryTab];
+    const overviewDays = DAYS.map((day) => ({
+      ...day,
+      dayLabel: 'D' + (day.id + 1),
+      onOpen: () => this.setState({ itineraryTab: day.id }),
+      summary: day.activities.map((item) => item.title).join('・'),
+      stay: day.hotel ? day.hotel.name : 'CI111 返程・抵達桃園',
+    }));
 
     const foodTabs = FOOD_TABS.map(t => {
       const active = t.key === this.state.foodTab;
@@ -478,7 +522,12 @@ class Component extends DCLogic {
       packingChecked: packingCheckedCount,
       packingTotal,
       currentDay,
-      dateTabs,
+      showOverview,
+      showDay,
+      overviewDays,
+      itineraryTabs,
+      outboundMeetingTitle: OUTBOUND_MEETING_TITLE,
+      outboundMeetingPlace: OUTBOUND_MEETING_PLACE,
       foodTabs,
       foodItems,
       docCategories,
@@ -529,4 +578,3 @@ class Component extends DCLogic {
     };
   }
 }
-
