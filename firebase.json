@@ -5,5 +5,17 @@
   },
   "storage": {
     "rules": "storage.rules"
+  },
+  "auth": {
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "九州親子遊 2026",
+        "supportEmail": "mihsia@gmail.com",
+        "authorizedRedirectUris": [
+          "https://mihsia.github.io",
+          "http://localhost"
+        ]
+      }
+    }
   }
 }

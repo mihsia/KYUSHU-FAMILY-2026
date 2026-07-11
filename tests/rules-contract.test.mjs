@@ -20,3 +20,10 @@ test('Storage rules enforce allow-list, types, and 10 MB limit', async () => {
   assert.match(rules, /application\/pdf/);
   assert.match(rules, /image\/\.*/);
 });
+
+test('Firebase config enables Google sign-in for localhost and GitHub Pages', async () => {
+  const config = JSON.parse(await readFile('firebase.json', 'utf8'));
+  assert.equal(config.auth.providers.googleSignIn.supportEmail, 'mihsia@gmail.com');
+  assert.ok(config.auth.providers.googleSignIn.authorizedRedirectUris.includes('http://localhost'));
+  assert.ok(config.auth.providers.googleSignIn.authorizedRedirectUris.includes('https://mihsia.github.io'));
+});
