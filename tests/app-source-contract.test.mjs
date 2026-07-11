@@ -80,6 +80,7 @@ test('rate UI keeps shared metadata and only persists a valid positive rate', as
   const html = await readFile('index.html', 'utf8');
   const template = JSON.parse(html.match(/<script type="__bundler\/template">\s*([\s\S]*?)\s*<\/script>/)[1]);
   assert.match(template, /sc-camel-on-click="\{\{ saveRate \}\}"/);
-  assert.match(template, />儲存匯率</);
+  assert.match(template, /sc-camel-disabled="\{\{ rateSaving \}\}"/);
+  assert.match(template, />\{\{ rateSaveLabel \}\}</);
   assert.match(template, /\{\{ rateError \}\}/);
 });

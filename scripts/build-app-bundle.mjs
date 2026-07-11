@@ -6,7 +6,15 @@ const [html, source] = await Promise.all([
 ]);
 const match = html.match(/<script type="__bundler\/template">\s*([\s\S]*?)\s*<\/script>/);
 if (!match) throw new Error('bundle template missing');
-const template = JSON.parse(match[1]);
+let template = JSON.parse(match[1]);
+const rateButton = 'sc-camel-on-click="{{ saveRate }}"';
+template = template.replace(`${rateButton} sc-camel-disabled="{{ rateSaving }}"`, rateButton);
+const rateButtonMatches = template.split(rateButton).length - 1;
+if (rateButtonMatches !== 1) throw new Error(`expected one rate save button, found ${rateButtonMatches}`);
+template = template.replace(
+  rateButton,
+  `${rateButton} sc-camel-disabled="{{ rateSaving }}"`,
+).replace('>儲存匯率</button>', '>{{ rateSaveLabel }}</button>');
 const appPattern = /(<script[^>]*>)([\s\S]*?)(<\/script>)/g;
 const candidates = [...template.matchAll(appPattern)]
   .filter((candidate) => candidate[2].includes('const DAYS = [') && candidate[2].includes('class Component extends DCLogic'));
