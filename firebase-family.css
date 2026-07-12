@@ -56,3 +56,12 @@
   #firebase-account-bar { top: 8px; right: 8px; }
   #firebase-user { display: none; }
 }
+.expense-receipt-picker { margin-top: 10px; }
+.expense-receipt-button, .expense-receipt-link { display: inline-flex; align-items: center; border: 1px solid #d8d1c1; border-radius: 9px; background: #faf7f0; color: #4b4438; padding: 8px 11px; font: inherit; font-size: 12px; cursor: pointer; }
+.expense-receipt-preview { display: flex; align-items: center; gap: 8px; margin-top: 9px; font-size: 12px; color: #666; }
+.expense-receipt-preview img { width: 54px; height: 54px; border-radius: 8px; object-fit: cover; border: 1px solid #eee; }
+.expense-receipt-preview span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.expense-receipt-preview button { border: 0; background: transparent; color: #a5432e; cursor: pointer; }
+.expense-save-button { margin-top: 10px; background: #111; color: #fff; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; text-align: center; }
+.expense-error { margin-top: 9px; color: #a5432e; font-size: 12px; line-height: 1.5; }
+.expense-receipt-link { padding: 4px 7px; font-size: 11px; white-space: nowrap; }

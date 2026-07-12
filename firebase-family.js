@@ -31,13 +31,25 @@ import {
   isAllowedEmail,
   normalizeLegacyStore,
   roleForEmail,
+  sanitizeReceiptFileName,
   sanitizeFileName,
+  validateReceipt,
   validateUpload,
 } from './firebase-family-core.js';
 
 const COLLECTIONS = ['wishlist', 'mustbuy', 'packing', 'expenses', 'documents'];
 const listeners = new Set();
-const cloud = { rate: 21.4, wishlist: [], mustbuy: [], packingChecked: {}, expenses: [], documents: {} };
+const cloud = {
+  rate: 21.4,
+  rateSource: 'BOT cash sell',
+  rateUpdatedAt: null,
+  rateUpdatedBy: '',
+  wishlist: [],
+  mustbuy: [],
+  packingChecked: {},
+  expenses: [],
+  documents: {},
+};
 let app;
 let auth;
 let db;
@@ -89,11 +101,18 @@ function listItem(item) {
 }
 
 function expenseItem(item) {
+  const receipt = item.receiptPath ? {
+    receiptPath: String(item.receiptPath),
+    receiptName: String(item.receiptName),
+    receiptType: String(item.receiptType),
+    receiptSize: Number(item.receiptSize),
+  } : {};
   return withCreation({
     day: Math.max(0, Math.min(4, Number(item.day) || 0)),
     category: ['餐飲', '交通', '購物', '門票', '其他'].includes(item.category) ? item.category : '其他',
     note: String(item.note || '(未命名)').slice(0, 300),
     jpy: Math.max(1, Number(item.jpy) || 1),
+    ...receipt,
   });
 }
 
@@ -120,6 +139,9 @@ async function initializeTripIfNeeded() {
     if (root.exists()) return false;
     transaction.set(tripRef(), {
       rate: source.rate,
+      rateSource: 'BOT cash sell',
+      rateUpdatedAt: serverTimestamp(),
+      rateUpdatedBy: currentUser.uid,
       initialized: true,
       initializedBy: currentUser.uid,
       initializedAt: serverTimestamp(),
@@ -148,7 +170,13 @@ async function initializeTripIfNeeded() {
 function attachSnapshots() {
   clearSubscriptions();
   unsubs.push(onSnapshot(tripRef(), (snapshot) => {
-    if (snapshot.exists()) cloud.rate = Number(snapshot.data().rate) || 21.4;
+    if (snapshot.exists()) {
+      const root = snapshot.data();
+      cloud.rate = Number(root.rate) || 21.4;
+      cloud.rateSource = root.rateSource === 'BOT cash sell' ? root.rateSource : 'BOT cash sell';
+      cloud.rateUpdatedAt = root.rateUpdatedAt || null;
+      cloud.rateUpdatedBy = String(root.rateUpdatedBy || '');
+    }
     emit({ phase: 'ready', message: '已同步', error: null });
   }, handleError));
   for (const name of COLLECTIONS) {
@@ -192,11 +220,9 @@ async function saveState(input) {
   const state = normalizeLegacyStore(input);
   emit({ phase: 'syncing', message: '同步中', error: null });
   try {
-    await setDoc(tripRef(), { rate: state.rate, updatedAt: serverTimestamp() }, { merge: true });
     await Promise.all([
       syncCollection('wishlist', state.wishlist, listItem),
       syncCollection('mustbuy', state.mustbuy, listItem),
-      syncCollection('expenses', state.expenses, expenseItem),
       syncCollection('packing', Object.entries(state.packingChecked).map(([id, checked]) => ({ id, checked })), (item) => ({ checked: !!item.checked, ...audit() })),
     ]);
     emit({ phase: 'ready', message: '已同步', error: null });
@@ -204,6 +230,75 @@ async function saveState(input) {
     handleError(error);
     throw error;
   }
+}
+
+async function saveRate(rate) {
+  if (!currentUser) throw new Error('請先登入');
+  rate = Number(rate);
+  if (!Number.isFinite(rate) || rate <= 0 || rate > 100) throw new Error('請輸入 0 到 100 之間的正數匯率');
+  emit({ phase: 'syncing', message: '正在儲存匯率', error: null });
+  try {
+    await setDoc(tripRef(), {
+      rate,
+      rateSource: 'BOT cash sell',
+      rateUpdatedAt: serverTimestamp(),
+      rateUpdatedBy: currentUser.uid,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  } catch (error) {
+    handleError(error);
+    throw error;
+  }
+}
+
+async function createExpenseWithReceipt(expense, file = null, onProgress = () => {}) {
+  if (!currentUser) throw new Error('請先登入');
+  const expenseRef = expense.id
+    ? doc(tripCollection('expenses'), String(expense.id))
+    : doc(tripCollection('expenses'));
+  let receipt = {};
+  let objectRef = null;
+  if (file) {
+    const validation = validateReceipt(file);
+    if (!validation.ok) throw new Error(validation.error);
+    const path = `trips/${TRIP_ID}/receipts/${expenseRef.id}/${sanitizeReceiptFileName(file.name)}`;
+    objectRef = ref(storage, path);
+    const task = uploadBytesResumable(objectRef, file, { contentType: file.type });
+    await new Promise((resolve, reject) => task.on('state_changed',
+      (snapshot) => onProgress(Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100)),
+      reject,
+      resolve));
+    receipt = { receiptPath: path, receiptName: file.name, receiptType: file.type, receiptSize: file.size };
+  }
+  try {
+    await setDoc(expenseRef, expenseItem({ ...expense, ...receipt }));
+  } catch (error) {
+    if (objectRef) await deleteObject(objectRef).catch(() => {});
+    throw error;
+  }
+  return { id: expenseRef.id, ...expense, ...receipt };
+}
+
+async function previewReceipt(expense) {
+  if (!expense.receiptPath) throw new Error('此筆記帳沒有收據');
+  const url = await getDownloadURL(ref(storage, expense.receiptPath));
+  window.open(url, '_blank', 'noopener');
+}
+
+async function deleteExpenseWithReceipt(expense) {
+  if (!currentUser) throw new Error('請先登入');
+  if (expense.receiptPath) {
+    try {
+      await deleteObject(ref(storage, expense.receiptPath));
+    } catch (error) {
+      if (error?.code === 'storage/object-not-found') {
+        // A prior attempt already removed the receipt; resume with Firestore.
+      } else {
+        throw new Error('收據刪除失敗，請重試');
+      }
+    }
+  }
+  await deleteDoc(doc(tripCollection('expenses'), String(expense.id)));
 }
 
 async function uploadDocument(category, file, onProgress = () => {}) {
@@ -299,6 +394,10 @@ window.KyushuFamily = Object.freeze({
   signOut,
   subscribe,
   saveState,
+  saveRate,
+  createExpenseWithReceipt,
+  previewReceipt,
+  deleteExpenseWithReceipt,
   uploadDocument,
   deleteDocument,
   previewDocument,

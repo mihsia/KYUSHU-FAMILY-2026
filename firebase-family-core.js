@@ -7,6 +7,7 @@ export const ALLOWED_EMAILS = Object.freeze([
 
 const DOCUMENT_CATEGORIES = Object.freeze(['機票', '住宿', 'VJW', '保險', '其他']);
 const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
+const RECEIPT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 function cleanEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -34,12 +35,36 @@ export function sanitizeFileName(name) {
   return value || 'document';
 }
 
+export function sanitizeReceiptFileName(name) {
+  const baseName = String(name || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .pop()
+    .trim();
+  const extensionMatch = baseName.match(/\.([A-Za-z0-9]+)$/);
+  const extension = extensionMatch ? `.${extensionMatch[1]}` : '';
+  const stem = (extensionMatch ? baseName.slice(0, -extension.length) : baseName)
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/^[-._]+|[-._]+$/g, '');
+  return `${stem || 'receipt'}${extension}`;
+}
+
 export function validateUpload(file) {
   if (!file || Number(file.size) > MAX_FILE_SIZE) {
     return { ok: false, error: '檔案超過 10 MB' };
   }
   if (!ALLOWED_TYPES.has(String(file.type || '').toLowerCase())) {
     return { ok: false, error: '只允許 PDF、JPEG、PNG 或 WebP' };
+  }
+  return { ok: true };
+}
+
+export function validateReceipt(file) {
+  const size = Number(file?.size);
+  if (!Number.isFinite(size) || size <= 0) return { ok: false, error: '收據檔案不可為空' };
+  if (size > MAX_FILE_SIZE) return { ok: false, error: '收據超過 10 MB' };
+  if (!RECEIPT_TYPES.has(String(file.type || '').toLowerCase())) {
+    return { ok: false, error: '收據只允許 JPEG、PNG 或 WebP' };
   }
   return { ok: true };
 }
@@ -59,5 +84,8 @@ export function normalizeLegacyStore(input = {}) {
     documents,
     expenses: Array.isArray(source.expenses) ? source.expenses.map((item) => ({ ...item })) : [],
     rate: Number.isFinite(Number(source.rate)) ? Number(source.rate) : 21.4,
+    rateSource: source.rateSource === 'BOT cash sell' ? source.rateSource : 'BOT cash sell',
+    rateUpdatedAt: source.rateUpdatedAt || null,
+    rateUpdatedBy: String(source.rateUpdatedBy || ''),
   };
 }

@@ -101,6 +101,9 @@ function applyCloud(snapshot) {
       documents: { 機票: [], 住宿: [], VJW: [], 保險: [], 其他: [], ...snapshot.data.documents },
       expenses: snapshot.data.expenses,
       rate: snapshot.data.rate,
+      rateSource: snapshot.data.rateSource,
+      rateUpdatedAt: snapshot.data.rateUpdatedAt,
+      rateUpdatedBy: snapshot.data.rateUpdatedBy,
     };
     lastCloudDocuments = flattenDocuments(next.documents);
     const encoded = JSON.stringify(next);

@@ -17,9 +17,13 @@ service cloud.firestore {
 
     function isValidTrip(data) {
       return data.keys().hasOnly([
-          'rate', 'initialized', 'initializedBy', 'initializedAt', 'updatedAt'
+          'rate', 'rateSource', 'rateUpdatedAt', 'rateUpdatedBy',
+          'initialized', 'initializedBy', 'initializedAt', 'updatedAt'
         ])
-        && data.rate is number && data.rate >= 0 && data.rate <= 100
+        && data.rate is number && data.rate > 0 && data.rate <= 100
+        && data.rateSource == 'BOT cash sell'
+        && data.rateUpdatedAt is timestamp
+        && data.rateUpdatedBy is string && data.rateUpdatedBy.size() > 0 && data.rateUpdatedBy.size() <= 128
         && data.initialized is bool
         && data.initializedBy is string && data.initializedBy.size() <= 128
         && data.initializedAt is timestamp
@@ -48,15 +52,31 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
-    function isValidExpense(data) {
-      return data.keys().hasOnly([
-          'day', 'category', 'note', 'jpy', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'
+    function hasNoReceipt(data) {
+      return !data.keys().hasAny(['receiptPath', 'receiptName', 'receiptType', 'receiptSize']);
+    }
+
+    function hasValidReceipt(data, expenseId) {
+      return data.keys().hasAll(['receiptPath', 'receiptName', 'receiptType', 'receiptSize'])
+        && data.receiptPath is string
+        && data.receiptPath.matches('^trips/kyushu-2026/receipts/' + expenseId + '/[A-Za-z0-9._-]+$')
+        && data.receiptName is string && data.receiptName.size() > 0 && data.receiptName.size() <= 240
+        && data.receiptType is string && data.receiptType.matches('^image/(jpeg|png|webp)$')
+        && data.receiptSize is int && data.receiptSize > 0 && data.receiptSize <= 10 * 1024 * 1024;
+    }
+
+    function isValidExpense(data, expenseId) {
+      return expenseId.matches('^[A-Za-z0-9_-]+$')
+        && data.keys().hasOnly([
+          'day', 'category', 'note', 'jpy', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt',
+          'receiptPath', 'receiptName', 'receiptType', 'receiptSize'
         ])
         && data.day is int && data.day >= 0 && data.day <= 4
         && data.category in ['餐飲', '交通', '購物', '門票', '其他']
         && data.note is string && data.note.size() > 0 && data.note.size() <= 300
         && data.jpy is number && data.jpy > 0 && data.jpy <= 10000000
-        && validAudit(data);
+        && validAudit(data)
+        && (hasNoReceipt(data) || hasValidReceipt(data, expenseId));
     }
 
     function isValidDocument(data) {
@@ -109,7 +129,7 @@ service cloud.firestore {
       }
       match /expenses/{expenseId} {
         allow read: if isAllowed();
-        allow create, update: if isAllowed() && isValidExpense(request.resource.data);
+        allow create, update: if isAllowed() && isValidExpense(request.resource.data, expenseId);
         allow delete: if isAllowed();
       }
       match /documents/{documentId} {
