@@ -4,9 +4,30 @@ let [html, source] = await Promise.all([
   readFile('index.html', 'utf8'),
   readFile('src/app.jsx', 'utf8'),
 ]);
+const installTags = [
+  '<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">',
+  '<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">',
+  '<link rel="manifest" href="manifest.webmanifest">',
+  '<meta name="theme-color" content="#12363D">',
+  '<meta name="apple-mobile-web-app-capable" content="yes">',
+  '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">',
+  '<meta name="apple-mobile-web-app-title" content="九州親子遊">',
+];
+
+function ensureInstallMetadata(document, label) {
+  const headClosers = document.match(/<\/head>/gi) || [];
+  if (headClosers.length !== 1) {
+    throw new Error(`expected exactly one head in ${label}, found ${headClosers.length}`);
+  }
+  const missing = installTags.filter((tag) => !document.includes(tag));
+  if (missing.length === 0) return document;
+  return document.replace('</head>', `  ${missing.join('\n  ')}\n</head>`);
+}
+
 const match = html.match(/<script type="__bundler\/template">\s*([\s\S]*?)\s*<\/script>/);
 if (!match) throw new Error('bundle template missing');
 let template = JSON.parse(match[1]);
+template = ensureInstallMetadata(template, 'bundle template');
 const receiptCoreScript = '<script type="module" src="receipt-import-core.js"></script>';
 const needsReceiptCoreScript = !html.includes(receiptCoreScript);
 const rateSaveButtonPattern = /(<button type="button" sc-camel-on-click="\{\{ saveRate \}\}")(?: sc-camel-disabled="\{\{ rateSaving \}\}")?([^>]*>)(?:儲存匯率|\{\{ rateSaveLabel \}\})(<\/button>)/g;
@@ -43,4 +64,5 @@ let updatedHtml = html.slice(0, match.index) + replacement + html.slice(match.in
 if (needsReceiptCoreScript) {
   updatedHtml = updatedHtml.replace('</head>', `  ${receiptCoreScript}\n</head>`);
 }
+updatedHtml = ensureInstallMetadata(updatedHtml, 'outer document');
 await writeFile('index.html', updatedHtml);

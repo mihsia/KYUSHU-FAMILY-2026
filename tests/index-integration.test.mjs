@@ -18,6 +18,31 @@ test('generated browser head loads the receipt import core module', async () => 
   assert.match(head, /<script type="module" src="receipt-import-core\.js"><\/script>/);
 });
 
+test('website exposes Apple and PWA install metadata in both heads', async () => {
+  const html = await readFile('index.html', 'utf8');
+  const raw = html.match(/<script type="__bundler\/template">\s*([\s\S]*?)\s*<\/script>/)?.[1];
+  assert.ok(raw, 'bundle template missing');
+  const inner = JSON.parse(raw);
+  for (const source of [html, inner]) {
+    assert.match(source, /rel="apple-touch-icon"[^>]*apple-touch-icon\.png/);
+    assert.match(source, /rel="manifest"[^>]*manifest\.webmanifest/);
+    assert.match(source, /apple-mobile-web-app-title" content="九州親子遊"/);
+    assert.match(source, /theme-color" content="#12363D"/);
+  }
+});
+
+test('web manifest uses the GitHub Pages subpath and required icons', async () => {
+  const manifest = JSON.parse(await readFile('manifest.webmanifest', 'utf8'));
+  assert.equal(manifest.short_name, '九州親子遊');
+  assert.equal(manifest.start_url, '/KYUSHU-FAMILY-2026/');
+  assert.equal(manifest.scope, '/KYUSHU-FAMILY-2026/');
+  assert.equal(manifest.display, 'standalone');
+  assert.deepEqual(manifest.icons.map(({ src, sizes }) => [src, sizes]), [
+    ['icon-192.png', '192x192'],
+    ['icon-512.png', '512x512'],
+  ]);
+});
+
 test('bundle error sink ignores opaque cross-origin script errors', async () => {
   const html = await readFile('index.html', 'utf8');
   assert.match(html, /e\.message === 'Script error\.' && !e\.error/);
