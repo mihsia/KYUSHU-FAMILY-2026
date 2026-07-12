@@ -12,6 +12,11 @@ test('index loads the Firebase authentication and synchronization shell', async 
   }
 });
 
+test('bundle error sink ignores opaque cross-origin script errors', async () => {
+  const html = await readFile('index.html', 'utf8');
+  assert.match(html, /e\.message === 'Script error\.' && !e\.error/);
+});
+
 test('bridge starts Firebase and synchronizes local application state', async () => {
   const source = await readFile('firebase-bridge.js', 'utf8');
   assert.match(source, /KyushuFamily\.start\(\)/);
