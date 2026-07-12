@@ -93,7 +93,7 @@ test('normalizes duplicate comparison values', () => {
 
 - [ ] **Step 2: Run the tests and verify RED**
 
-Run: `node --test tests/receipt-import-core.test.mjs`  
+Run: `node --test tests/receipt-import-core.test.mjs`
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `receipt-import-core.js`.
 
 - [ ] **Step 3: Implement the pure contract**
@@ -136,7 +136,7 @@ Complete `parseReceiptImport` with strict JSON parsing, exact version checking, 
 
 - [ ] **Step 4: Run the focused and full core tests**
 
-Run: `node --test tests/receipt-import-core.test.mjs tests/firebase-family-core.test.mjs`  
+Run: `node --test tests/receipt-import-core.test.mjs tests/firebase-family-core.test.mjs`
 Expected: all tests PASS.
 
 - [ ] **Step 5: Commit the pure contract**
@@ -174,7 +174,7 @@ test('Firebase previews navigate the current page instead of opening async popup
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
-Run: `node --test tests/firebase-browser-contract.test.mjs`  
+Run: `node --test tests/firebase-browser-contract.test.mjs`
 Expected: FAIL because both functions still contain `window.open`.
 
 - [ ] **Step 3: Replace popup opening with same-page navigation**
@@ -195,7 +195,7 @@ async function previewDocument(documentData) {
 
 - [ ] **Step 4: Run browser contract tests**
 
-Run: `node --test tests/firebase-browser-contract.test.mjs`  
+Run: `node --test tests/firebase-browser-contract.test.mjs`
 Expected: all tests PASS.
 
 - [ ] **Step 5: Commit preview repair**
@@ -236,7 +236,7 @@ test('browser service exposes imported expense writes and preserves import metad
 
 - [ ] **Step 2: Run and verify RED**
 
-Run: `node --test tests/firebase-browser-contract.test.mjs`  
+Run: `node --test tests/firebase-browser-contract.test.mjs`
 Expected: FAIL because `createImportedExpense` is absent.
 
 - [ ] **Step 3: Extend serialization and add the write method**
@@ -278,7 +278,7 @@ Expose the method through `Object.freeze(window.KyushuFamily)`.
 
 - [ ] **Step 4: Run service and core tests**
 
-Run: `node --test tests/firebase-browser-contract.test.mjs tests/firebase-family-core.test.mjs`  
+Run: `node --test tests/firebase-browser-contract.test.mjs tests/firebase-family-core.test.mjs`
 Expected: all tests PASS.
 
 - [ ] **Step 5: Commit the Firebase API**
@@ -322,7 +322,7 @@ test('expense UI exposes ChatGPT JSON review and retry flow', async () => {
 
 - [ ] **Step 2: Run and verify RED**
 
-Run: `node --test tests/index-integration.test.mjs`  
+Run: `node --test tests/index-integration.test.mjs`
 Expected: FAIL because the import controls and handlers are absent.
 
 - [ ] **Step 3: Add import state and handlers to the React class**
@@ -377,12 +377,12 @@ Each draft row must expose date, merchant, amount, currency, category, and descr
 
 - [ ] **Step 5: Rebuild the bundled app**
 
-Run: `node scripts/build-app-bundle.mjs`  
+Run: `node scripts/build-app-bundle.mjs`
 Expected: `index.html` is regenerated from `src/app.jsx` without errors.
 
 - [ ] **Step 6: Run UI and core tests**
 
-Run: `node --test tests/index-integration.test.mjs tests/receipt-import-core.test.mjs`  
+Run: `node --test tests/index-integration.test.mjs tests/receipt-import-core.test.mjs`
 Expected: all tests PASS.
 
 - [ ] **Step 7: Commit the UI**
@@ -424,7 +424,7 @@ test('Firestore validates ChatGPT import metadata without update bypasses', asyn
 
 - [ ] **Step 2: Run and verify RED**
 
-Run: `node --test tests/rules-contract.test.mjs`  
+Run: `node --test tests/rules-contract.test.mjs`
 Expected: FAIL because import metadata is not allowed.
 
 - [ ] **Step 3: Add strict optional-import validation**
@@ -448,10 +448,10 @@ Add `isValidImportItem(item)` to require exactly `name`, `quantity`, and `amount
 
 - [ ] **Step 4: Run rules tests and compile rules**
 
-Run: `node --test tests/rules-contract.test.mjs`  
+Run: `node --test tests/rules-contract.test.mjs`
 Expected: all tests PASS.
 
-Run: `npx -y firebase-tools@latest deploy --only firestore:rules --project kyushu-family-2026 --dry-run`  
+Run: `npx -y firebase-tools@latest deploy --only firestore:rules --project kyushu-family-2026 --dry-run`
 Expected: Firestore rules compile successfully without deployment.
 
 - [ ] **Step 5: Perform the security auditor checklist**
@@ -488,23 +488,23 @@ git commit -m "security: validate imported expense metadata"
 
 - [ ] **Step 1: Run every automated test from a clean command**
 
-Run: `node --test tests/*.test.mjs`  
+Run: `node --test tests/*.test.mjs`
 Expected: zero failures.
 
 - [ ] **Step 2: Run structural verification**
 
-Run: `git diff --check origin/main...HEAD`  
+Run: `git diff --check origin/main...HEAD`
 Expected: no output.
 
-Run: `rg -n "window\.open" firebase-family.js src/app.jsx`  
+Run: `rg -n "window\.open" firebase-family.js src/app.jsx`
 Expected: no Firebase preview call uses `window.open`.
 
-Run: `rg -n "sk-|OPENAI_API_KEY|api\.openai\.com" . --glob '!docs/**' --glob '!.git/**'`  
+Run: `rg -n "sk-|OPENAI_API_KEY|api\.openai\.com" . --glob '!docs/**' --glob '!.git/**'`
 Expected: no client secret or direct OpenAI API integration.
 
 - [ ] **Step 3: Start a local browser test**
 
-Run: `python3 -m http.server 8765`  
+Run: `python3 -m http.server 8765`
 Expected: the site loads at `http://localhost:8765`.
 
 Verify with an allowed Google account:
@@ -519,7 +519,7 @@ Verify with an allowed Google account:
 
 - [ ] **Step 4: Deploy the audited Firestore rules**
 
-Run: `npx -y firebase-tools@latest deploy --only firestore:rules --project kyushu-family-2026`  
+Run: `npx -y firebase-tools@latest deploy --only firestore:rules --project kyushu-family-2026`
 Expected: deployment reports success for `(default)` Firestore rules.
 
 - [ ] **Step 5: Push and open a pull request**
