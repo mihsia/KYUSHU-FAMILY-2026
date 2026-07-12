@@ -66,6 +66,21 @@ test('receipt picker remounts after remove and successful save so the same file 
   assert.match(app, /expenses:\s*\[\.\.\.s\.expenses, created\][\s\S]*expenseReceiptInputKey:\s*s\.expenseReceiptInputKey \+ 1/);
 });
 
+test('expense UI exposes ChatGPT JSON review and retry flow', async () => {
+  const [html, app] = await Promise.all([
+    readFile('index.html', 'utf8'), readFile('src/app.jsx', 'utf8'),
+  ]);
+  const template = JSON.parse(html.match(/<script type="__bundler\/template">\s*([\s\S]*?)\s*<\/script>/)[1]);
+  assert.match(template, /匯入 ChatGPT 辨識結果/);
+  assert.match(template, /複製 ChatGPT 提示詞/);
+  assert.match(template, /檢查資料/);
+  assert.match(template, /確認匯入/);
+  assert.match(app, /parseReceiptImport/);
+  assert.match(app, /normalizeImportRow/);
+  assert.match(app, /createImportedExpense/);
+  assert.match(app, /importSucceededIds/);
+});
+
 test('bundled itinerary starts with overview and keeps meeting copy with CI110', async () => {
   const html = await readFile('index.html', 'utf8');
   const raw = html.match(/<script type="__bundler\/template">\s*([\s\S]*?)\s*<\/script>/)?.[1];

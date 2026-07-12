@@ -272,6 +272,12 @@ class Component extends DCLogic {
       expenseSaving: false,
       expenseProgress: 0,
       expenseError: '',
+      importText: '',
+      importRows: [],
+      importErrors: [],
+      importBusy: false,
+      importResult: '',
+      importSucceededIds: {},
       rate: Number(saved.rate) > 0 ? Number(saved.rate) : 21.4,
       rateMeta: {
         source: saved.rateSource === 'BOT cash sell' ? saved.rateSource : 'BOT cash sell',
@@ -470,6 +476,67 @@ class Component extends DCLogic {
     }));
   }
 
+  checkReceiptImport() {
+    const parsed = window.ReceiptImportCore.parseReceiptImport(this.state.importText, this.state.expenses);
+    this.setState({
+      importRows: parsed.ok ? parsed.rows.map((row, index) => ({ ...row, importId: `import-${index}` })) : [],
+      importErrors: parsed.errors,
+      importResult: '',
+      importSucceededIds: {},
+    });
+  }
+
+  updateImportRow(index, patch) {
+    this.setState((state) => ({
+      importRows: state.importRows.map((row, i) => i === index ? { ...row, ...patch } : row),
+      importErrors: [],
+      importResult: '',
+    }));
+  }
+
+  async confirmReceiptImport() {
+    if (this.state.importBusy) return;
+    const checked = window.ReceiptImportCore.parseReceiptImport(JSON.stringify({
+      version: 1,
+      expenses: this.state.importRows,
+    }), this.state.expenses);
+    if (!checked.ok) {
+      this.setState({ importErrors: checked.errors, importResult: '' });
+      return;
+    }
+
+    this.setState({ importBusy: true, importErrors: [], importResult: '' });
+    const succeeded = { ...this.state.importSucceededIds };
+    const createdExpenses = [];
+    const failures = [];
+    for (let index = 0; index < this.state.importRows.length; index += 1) {
+      const row = this.state.importRows[index];
+      if (succeeded[row.importId]) continue;
+      try {
+        const normalized = window.ReceiptImportCore.normalizeImportRow(row, this.state.rate);
+        const created = await window.KyushuFamily.createImportedExpense(normalized);
+        succeeded[row.importId] = true;
+        createdExpenses.push(created);
+      } catch (error) {
+        failures.push(`第 ${index + 1} 筆：${error?.message || '匯入失敗'}`);
+      }
+    }
+    const successCount = Object.keys(succeeded).length;
+    const failureCount = failures.length;
+    const allSucceeded = successCount === this.state.importRows.length;
+    this.setState((state) => ({
+      expenses: [...state.expenses, ...createdExpenses],
+      importBusy: false,
+      importSucceededIds: allSucceeded ? {} : succeeded,
+      importRows: allSucceeded ? [] : state.importRows,
+      importText: allSucceeded ? '' : state.importText,
+      importErrors: failures,
+      importResult: allSucceeded
+        ? `成功 ${successCount} 筆`
+        : `成功 ${successCount} 筆，失敗 ${failureCount} 筆；可重試失敗資料`,
+    }), () => this.persist());
+  }
+
   renderVals() {
     const view = this.state.view;
     const today = new Date();
@@ -563,6 +630,18 @@ class Component extends DCLogic {
       color: this.state.expenseCat === c ? '#fff' : '#666',
     }));
 
+    const importRows = this.state.importRows.map((row, index) => ({
+      ...row,
+      succeeded: !!this.state.importSucceededIds[row.importId],
+      lowConfidence: Number(row.confidence) < 0.7,
+      onDate: (e) => this.updateImportRow(index, { date: e.target.value }),
+      onMerchant: (e) => this.updateImportRow(index, { merchant: e.target.value }),
+      onAmount: (e) => this.updateImportRow(index, { amount: Number(e.target.value) }),
+      onCurrency: (e) => this.updateImportRow(index, { currency: e.target.value }),
+      onCategory: (e) => this.updateImportRow(index, { category: e.target.value }),
+      onDescription: (e) => this.updateImportRow(index, { description: e.target.value }),
+    }));
+
     const expenseByDay = DAYS.map(d => {
       const entries = this.state.expenses.filter(e => e.day === d.id).map(e => ({
         ...e,
@@ -643,6 +722,26 @@ class Component extends DCLogic {
       expenseTotalTwd,
       expenseDayOptions,
       expenseCatOptions,
+      importText: this.state.importText,
+      importRows,
+      importErrors: this.state.importErrors,
+      importHasErrors: this.state.importErrors.length > 0,
+      importResult: this.state.importResult,
+      importBusy: this.state.importBusy,
+      importConfirmDisabled: this.state.importBusy || this.state.importRows.length === 0,
+      onImportText: (e) => this.setState({ importText: e.target.value }),
+      copyReceiptPrompt: async () => {
+        const prompt = window.ReceiptImportCore.CHATGPT_RECEIPT_PROMPT;
+        try {
+          if (!navigator.clipboard?.writeText) throw new Error('clipboard unavailable');
+          await navigator.clipboard.writeText(prompt);
+          window.alert('已複製 ChatGPT 提示詞');
+        } catch {
+          window.alert(prompt);
+        }
+      },
+      checkReceiptImport: () => this.checkReceiptImport(),
+      confirmReceiptImport: () => this.confirmReceiptImport(),
       expenseNote: this.state.expenseNote,
       onExpenseNoteInput: (e) => this.setState({ expenseNote: e.target.value }),
       expenseJpy: this.state.expenseJpy,

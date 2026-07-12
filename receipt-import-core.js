@@ -137,3 +137,11 @@ export function normalizeImportRow(row, rate) {
     importDate: row.date,
   };
 }
+
+if (typeof window !== 'undefined') {
+  window.ReceiptImportCore = Object.freeze({
+    CHATGPT_RECEIPT_PROMPT,
+    parseReceiptImport,
+    normalizeImportRow,
+  });
+}
