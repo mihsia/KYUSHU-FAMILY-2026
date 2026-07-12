@@ -488,7 +488,10 @@ class Component extends DCLogic {
 
   updateImportRow(index, patch) {
     this.setState((state) => ({
-      importRows: state.importRows.map((row, i) => i === index ? { ...row, ...patch } : row),
+      importRows: window.ReceiptImportCore.recomputeDuplicateWarnings(
+        state.importRows.map((row, i) => i === index ? { ...row, ...patch } : row),
+        state.expenses,
+      ),
       importErrors: [],
       importResult: '',
     }));
@@ -496,42 +499,26 @@ class Component extends DCLogic {
 
   async confirmReceiptImport() {
     if (this.state.importBusy) return;
-    const checked = window.ReceiptImportCore.parseReceiptImport(JSON.stringify({
-      version: 1,
-      expenses: this.state.importRows,
-    }), this.state.expenses);
-    if (!checked.ok) {
-      this.setState({ importErrors: checked.errors, importResult: '' });
-      return;
-    }
-
     this.setState({ importBusy: true, importErrors: [], importResult: '' });
-    const succeeded = { ...this.state.importSucceededIds };
-    const createdExpenses = [];
-    const failures = [];
-    for (let index = 0; index < this.state.importRows.length; index += 1) {
-      const row = this.state.importRows[index];
-      if (succeeded[row.importId]) continue;
-      try {
-        const normalized = window.ReceiptImportCore.normalizeImportRow(row, this.state.rate);
-        const created = await window.KyushuFamily.createImportedExpense(normalized);
-        succeeded[row.importId] = true;
-        createdExpenses.push(created);
-      } catch (error) {
-        failures.push(`第 ${index + 1} 筆：${error?.message || '匯入失敗'}`);
-      }
-    }
-    const successCount = Object.keys(succeeded).length;
-    const failureCount = failures.length;
-    const allSucceeded = successCount === this.state.importRows.length;
+    const result = await window.ReceiptImportCore.executeImportBatch({
+      rows: this.state.importRows,
+      succeededIds: this.state.importSucceededIds,
+      validate: (rows) => window.ReceiptImportCore.parseReceiptImport(
+        JSON.stringify({ version: 1, expenses: rows }), this.state.expenses,
+      ),
+      normalize: (row) => window.ReceiptImportCore.normalizeImportRow(row, this.state.rate),
+      create: (expense) => window.KyushuFamily.createImportedExpense(expense),
+    });
+    const successCount = Object.keys(result.succeededIds).length;
+    const failureCount = result.errors.length;
     this.setState((state) => ({
-      expenses: [...state.expenses, ...createdExpenses],
+      expenses: [...state.expenses, ...result.createdExpenses],
       importBusy: false,
-      importSucceededIds: allSucceeded ? {} : succeeded,
-      importRows: allSucceeded ? [] : state.importRows,
-      importText: allSucceeded ? '' : state.importText,
-      importErrors: failures,
-      importResult: allSucceeded
+      importSucceededIds: result.allSucceeded ? {} : result.succeededIds,
+      importRows: result.allSucceeded ? [] : state.importRows,
+      importText: result.allSucceeded ? '' : state.importText,
+      importErrors: result.errors,
+      importResult: result.allSucceeded
         ? `成功 ${successCount} 筆`
         : `成功 ${successCount} 筆，失敗 ${failureCount} 筆；可重試失敗資料`,
     }), () => this.persist());

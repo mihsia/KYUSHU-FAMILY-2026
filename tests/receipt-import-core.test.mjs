@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import {
   CHATGPT_RECEIPT_PROMPT,
   duplicateKey,
+  executeImportBatch,
   normalizeImportRow,
   parseReceiptImport,
+  recomputeDuplicateWarnings,
 } from '../receipt-import-core.js';
 
 const validRow = {
@@ -122,4 +124,88 @@ test('normalizes duplicate comparison values', () => {
     duplicateKey({ date: '2026-07-13', merchant: '一蘭', amount: 2480, currency: 'JPY' }),
   );
   assert.match(CHATGPT_RECEIPT_PROMPT, /"version": 1/);
+});
+
+test('recomputes duplicate warnings after edits against saved and current draft rows', () => {
+  const saved = [{
+    importDate: '2026-07-13', merchant: '已存商店', originalAmount: 500,
+    originalCurrency: 'JPY',
+  }];
+  const drafts = recomputeDuplicateWarnings([
+    { ...validRow, merchant: '已存商店', amount: 500 },
+    { ...validRow, merchant: '唯一商店', amount: 700 },
+    { ...validRow, merchant: '唯一商店', amount: 700 },
+  ], saved);
+  assert.deepEqual(drafts.map((row) => row.duplicate), [true, true, true]);
+
+  const edited = recomputeDuplicateWarnings([
+    drafts[0], drafts[1], { ...drafts[2], amount: 701 },
+  ], []);
+  assert.deepEqual(edited.map((row) => row.duplicate), [false, false, false]);
+});
+
+test('batch executor validates before making calls and preserves input on validation failure', async () => {
+  let calls = 0;
+  const result = await executeImportBatch({
+    rows: [validRow], succeededIds: {},
+    validate: () => ({ ok: false, errors: ['bad edit'] }),
+    normalize: () => validRow,
+    create: async () => { calls += 1; },
+  });
+  assert.equal(calls, 0);
+  assert.deepEqual(result.errors, ['bad edit']);
+  assert.equal(result.allSucceeded, false);
+});
+
+test('batch executor imports sequentially and clears only after total success', async () => {
+  const events = [];
+  let active = 0;
+  const rows = [
+    { ...validRow, importId: 'a' },
+    { ...validRow, importId: 'b', merchant: '二號店' },
+  ];
+  const result = await executeImportBatch({
+    rows, succeededIds: {}, validate: () => ({ ok: true, errors: [] }),
+    normalize: (row) => row,
+    create: async (row) => {
+      assert.equal(active, 0, 'imports must not overlap');
+      active += 1;
+      events.push(`start-${row.importId}`);
+      await Promise.resolve();
+      events.push(`end-${row.importId}`);
+      active -= 1;
+      return { id: `created-${row.importId}` };
+    },
+  });
+  assert.deepEqual(events, ['start-a', 'end-a', 'start-b', 'end-b']);
+  assert.equal(result.allSucceeded, true);
+  assert.deepEqual(result.createdExpenses.map((row) => row.id), ['created-a', 'created-b']);
+});
+
+test('partial retry skips successful rows and retains drafts until all rows succeed', async () => {
+  const attempts = [];
+  const rows = [
+    { ...validRow, importId: 'a' },
+    { ...validRow, importId: 'b', merchant: '二號店' },
+  ];
+  const first = await executeImportBatch({
+    rows, succeededIds: {}, validate: () => ({ ok: true, errors: [] }), normalize: (row) => row,
+    create: async (row) => {
+      attempts.push(row.importId);
+      if (row.importId === 'b') throw new Error('offline');
+      return { id: row.importId };
+    },
+  });
+  assert.equal(first.allSucceeded, false);
+  assert.deepEqual(first.succeededIds, { a: true });
+  assert.deepEqual(first.errors, ['第 2 筆：offline']);
+
+  const second = await executeImportBatch({
+    rows, succeededIds: first.succeededIds,
+    validate: () => ({ ok: true, errors: [] }), normalize: (row) => row,
+    create: async (row) => { attempts.push(row.importId); return { id: row.importId }; },
+  });
+  assert.deepEqual(attempts, ['a', 'b', 'b']);
+  assert.equal(second.allSucceeded, true);
+  assert.deepEqual(second.createdExpenses, [{ id: 'b' }]);
 });

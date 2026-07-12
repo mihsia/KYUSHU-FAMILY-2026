@@ -16,6 +16,11 @@ template = template.replace(
   rateSaveButtonPattern,
   '$1 sc-camel-disabled="{{ rateSaving }}"$2{{ rateSaveLabel }}$3',
 );
+template = template
+  .replace(/<input type="date" value="\{\{ row\.date \}\}"/g,
+    '<input type="date" min="2026-07-13" max="2026-07-17" value="{{ row.date }}"')
+  .replace(/<input type="number"(?: min="[^"]*")?(?: max="[^"]*")? value="\{\{ row\.amount \}\}"/g,
+    '<input type="number" min="1" max="10000000" value="{{ row.amount }}"');
 const appPattern = /(<script[^>]*>)([\s\S]*?)(<\/script>)/g;
 const candidates = [...template.matchAll(appPattern)]
   .filter((candidate) => candidate[2].includes('const DAYS = [') && candidate[2].includes('class Component extends DCLogic'));

@@ -22,6 +22,24 @@ export function duplicateKey(row) {
   ].join('|');
 }
 
+export function recomputeDuplicateWarnings(rows, existingExpenses = []) {
+  const existingKeys = new Set(existingExpenses.map((expense) => duplicateKey({
+    date: expense.date ?? expense.importDate,
+    merchant: expense.merchant,
+    amount: expense.amount ?? expense.originalAmount,
+    currency: expense.currency ?? expense.originalCurrency,
+  })));
+  const draftKeyCounts = rows.reduce((counts, row) => {
+    const key = duplicateKey(row);
+    counts.set(key, (counts.get(key) || 0) + 1);
+    return counts;
+  }, new Map());
+  return rows.map((row) => ({
+    ...row,
+    duplicate: existingKeys.has(duplicateKey(row)) || draftKeyCounts.get(duplicateKey(row)) > 1,
+  }));
+}
+
 function isFinitePositive(value) {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
 }
@@ -90,23 +108,41 @@ export function parseReceiptImport(text, existingExpenses = []) {
 
   if (errors.length) return { ok: false, rows: [], errors };
 
-  const existingKeys = new Set(existingExpenses.map((expense) => duplicateKey({
-    date: expense.date ?? expense.importDate,
-    merchant: expense.merchant,
-    amount: expense.amount ?? expense.originalAmount,
-    currency: expense.currency ?? expense.originalCurrency,
-  })));
-  const batchKeyCounts = data.expenses.reduce((counts, row) => {
-    const key = duplicateKey(row);
-    counts.set(key, (counts.get(key) || 0) + 1);
-    return counts;
-  }, new Map());
-  const rows = data.expenses.map((row) => ({
+  const rows = recomputeDuplicateWarnings(data.expenses.map((row) => ({
     ...row,
     day: DATE_TO_DAY[row.date],
-    duplicate: existingKeys.has(duplicateKey(row)) || batchKeyCounts.get(duplicateKey(row)) > 1,
-  }));
+  })), existingExpenses);
   return { ok: true, rows, errors: [] };
+}
+
+export async function executeImportBatch({ rows, succeededIds, validate, normalize, create }) {
+  const validation = validate(rows);
+  if (!validation.ok) {
+    return {
+      allSucceeded: false, createdExpenses: [], succeededIds: { ...succeededIds },
+      errors: validation.errors,
+    };
+  }
+  const succeeded = { ...succeededIds };
+  const createdExpenses = [];
+  const errors = [];
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    if (succeeded[row.importId]) continue;
+    try {
+      const created = await create(normalize(row));
+      succeeded[row.importId] = true;
+      createdExpenses.push(created);
+    } catch (error) {
+      errors.push(`第 ${index + 1} 筆：${error?.message || '匯入失敗'}`);
+    }
+  }
+  return {
+    allSucceeded: Object.keys(succeeded).length === rows.length,
+    createdExpenses,
+    succeededIds: succeeded,
+    errors,
+  };
 }
 
 export function normalizeImportRow(row, rate) {
@@ -141,7 +177,9 @@ export function normalizeImportRow(row, rate) {
 if (typeof window !== 'undefined') {
   window.ReceiptImportCore = Object.freeze({
     CHATGPT_RECEIPT_PROMPT,
+    executeImportBatch,
     parseReceiptImport,
     normalizeImportRow,
+    recomputeDuplicateWarnings,
   });
 }

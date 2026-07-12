@@ -75,10 +75,14 @@ test('expense UI exposes ChatGPT JSON review and retry flow', async () => {
   assert.match(template, /複製 ChatGPT 提示詞/);
   assert.match(template, /檢查資料/);
   assert.match(template, /確認匯入/);
+  assert.match(template, /type="date" min="2026-07-13" max="2026-07-17"/);
+  assert.match(template, /type="number" min="1" max="10000000"/);
   assert.match(app, /parseReceiptImport/);
   assert.match(app, /normalizeImportRow/);
   assert.match(app, /createImportedExpense/);
   assert.match(app, /importSucceededIds/);
+  assert.match(app, /recomputeDuplicateWarnings/);
+  assert.match(app, /executeImportBatch/);
 });
 
 test('bundled itinerary starts with overview and keeps meeting copy with CI110', async () => {
