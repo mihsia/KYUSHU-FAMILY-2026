@@ -497,6 +497,17 @@ class Component extends DCLogic {
     }));
   }
 
+  removeImportRow(importId) {
+    if (this.state.importBusy || this.state.importSucceededIds[importId]) return;
+    this.setState((state) => ({
+      importRows: window.ReceiptImportCore.removeImportDraft(
+        state.importRows, importId, state.importSucceededIds, state.expenses,
+      ),
+      importErrors: [],
+      importResult: '',
+    }));
+  }
+
   async confirmReceiptImport() {
     if (this.state.importBusy) return;
     this.setState({ importBusy: true, importErrors: [], importResult: '' });
@@ -620,6 +631,7 @@ class Component extends DCLogic {
     const importRows = this.state.importRows.map((row, index) => ({
       ...row,
       succeeded: !!this.state.importSucceededIds[row.importId],
+      canRemove: !this.state.importBusy && !this.state.importSucceededIds[row.importId],
       lowConfidence: Number(row.confidence) < 0.7,
       onDate: (e) => this.updateImportRow(index, { date: e.target.value }),
       onMerchant: (e) => this.updateImportRow(index, { merchant: e.target.value }),
@@ -627,6 +639,7 @@ class Component extends DCLogic {
       onCurrency: (e) => this.updateImportRow(index, { currency: e.target.value }),
       onCategory: (e) => this.updateImportRow(index, { category: e.target.value }),
       onDescription: (e) => this.updateImportRow(index, { description: e.target.value }),
+      onRemove: () => this.removeImportRow(row.importId),
     }));
 
     const expenseByDay = DAYS.map(d => {

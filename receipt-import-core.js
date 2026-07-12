@@ -9,6 +9,7 @@ const DATE_TO_DAY = Object.freeze({
 });
 
 const CURRENCIES = Object.freeze(['JPY', 'TWD']);
+const FIRESTORE_NUMBER_MAX = 10000000;
 
 export const CHATGPT_RECEIPT_PROMPT = `請辨識我上傳的所有收據，並且只輸出 JSON，不要加入 Markdown、程式碼框、解釋或其他文字。
 輸出 {"version": 1,"expenses":[...]}；date 用 YYYY-MM-DD；amount 用數字；currency 只能是 JPY 或 TWD；category 只能是餐飲、交通、住宿、購物、門票、其他；每筆包含 date、merchant、amount、currency、category、description、items、confidence、notes。`;
@@ -40,6 +41,14 @@ export function recomputeDuplicateWarnings(rows, existingExpenses = []) {
   }));
 }
 
+export function removeImportDraft(rows, importId, succeededIds = {}, existingExpenses = []) {
+  if (succeededIds[importId]) return rows;
+  return recomputeDuplicateWarnings(
+    rows.filter((row) => row.importId !== importId),
+    existingExpenses,
+  );
+}
+
 function isFinitePositive(value) {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
 }
@@ -59,7 +68,7 @@ function validateRow(row, index, errors) {
 
   if (!Object.hasOwn(DATE_TO_DAY, row.date)) errors.push(`${path} 日期不在旅遊期間`);
   validateString(errors, `${path} merchant`, row.merchant, 100, false);
-  if (!isFinitePositive(row.amount) || row.amount > 10000000) errors.push(`${path} amount 必須是有限正數且不超過 10000000`);
+  if (!isFinitePositive(row.amount) || row.amount > FIRESTORE_NUMBER_MAX) errors.push(`${path} amount 必須是有限正數且不超過 10000000`);
   if (!CURRENCIES.includes(row.currency)) errors.push(`${path} currency 只能是 JPY 或 TWD`);
   if (!IMPORT_CATEGORIES.includes(row.category)) errors.push(`${path} category 不支援`);
   validateString(errors, `${path} description`, row.description, 200);
@@ -81,8 +90,12 @@ function validateRow(row, index, errors) {
       return;
     }
     validateString(errors, `${itemPath} name`, item.name, 100, false);
-    if (!isFinitePositive(item.quantity)) errors.push(`${itemPath} quantity 必須是有限正數`);
-    if (!isFinitePositive(item.amount)) errors.push(`${itemPath} amount 必須是有限正數`);
+    if (!isFinitePositive(item.quantity) || item.quantity > FIRESTORE_NUMBER_MAX) {
+      errors.push(`${itemPath} quantity 必須是有限正數且不超過 10000000`);
+    }
+    if (!isFinitePositive(item.amount) || item.amount > FIRESTORE_NUMBER_MAX) {
+      errors.push(`${itemPath} amount 必須是有限正數且不超過 10000000`);
+    }
   });
 }
 
@@ -154,6 +167,9 @@ export function normalizeImportRow(row, rate) {
   const jpy = row.currency === 'JPY'
     ? originalAmount
     : Math.round(originalAmount * 100 / numericRate);
+  if (!Number.isFinite(jpy) || jpy <= 0 || jpy > FIRESTORE_NUMBER_MAX) {
+    throw new RangeError('jpy must be a finite positive number not exceeding 10000000');
+  }
   return {
     day: DATE_TO_DAY[row.date],
     category: row.category,
@@ -181,5 +197,6 @@ if (typeof window !== 'undefined') {
     parseReceiptImport,
     normalizeImportRow,
     recomputeDuplicateWarnings,
+    removeImportDraft,
   });
 }

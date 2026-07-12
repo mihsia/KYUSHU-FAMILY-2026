@@ -7,6 +7,7 @@ import {
   normalizeImportRow,
   parseReceiptImport,
   recomputeDuplicateWarnings,
+  removeImportDraft,
 } from '../receipt-import-core.js';
 
 const validRow = {
@@ -142,6 +143,84 @@ test('recomputes duplicate warnings after edits against saved and current draft 
     drafts[0], drafts[1], { ...drafts[2], amount: 701 },
   ], []);
   assert.deepEqual(edited.map((row) => row.duplicate), [false, false, false]);
+});
+
+test('removes only an unsucceeded draft and recomputes remaining duplicate warnings', () => {
+  const rows = recomputeDuplicateWarnings([
+    { ...validRow, importId: 'a' },
+    { ...validRow, importId: 'b' },
+    { ...validRow, importId: 'c', merchant: '已存商店', amount: 500 },
+  ], [{
+    importDate: '2026-07-13', merchant: '已存商店', originalAmount: 500,
+    originalCurrency: 'JPY',
+  }]);
+  const remaining = removeImportDraft(rows, 'a', {}, []);
+  assert.deepEqual(remaining.map((row) => row.importId), ['b', 'c']);
+  assert.deepEqual(remaining.map((row) => row.duplicate), [false, false]);
+  assert.equal(removeImportDraft(rows, 'a', { a: true }, []).length, 3);
+});
+
+test('accepts 10,000,000 row and item values but rejects values above the Firestore bound', () => {
+  const boundary = parseReceiptImport(JSON.stringify({ version: 1, expenses: [{
+    ...validRow,
+    amount: 10000000,
+    items: [{ name: '整批', quantity: 10000000, amount: 10000000 }],
+  }] }));
+  assert.equal(boundary.ok, true);
+
+  for (const field of ['quantity', 'amount']) {
+    const over = parseReceiptImport(JSON.stringify({ version: 1, expenses: [{
+      ...validRow,
+      items: [{ name: '超量', quantity: 1, amount: 1, [field]: 10000001 }],
+    }] }));
+    assert.equal(over.ok, false);
+    assert.match(over.errors.join(' '), new RegExp(`${field}.*10000000`));
+  }
+});
+
+test('normalization enforces the final JPY Firestore bound for JPY and TWD', () => {
+  assert.equal(normalizeImportRow({ ...validRow, amount: 10000000 }, 21.4).jpy, 10000000);
+  assert.equal(normalizeImportRow({ ...validRow, currency: 'TWD', amount: 10000000 }, 100).jpy, 10000000);
+  assert.throws(() => normalizeImportRow({ ...validRow, amount: 10000001 }, 21.4), /jpy.*10000000/i);
+  assert.throws(() => normalizeImportRow({ ...validRow, currency: 'TWD', amount: 10000000 }, 21.4), /jpy.*10000000/i);
+});
+
+test('batch validation and normalization bounds block create calls', async () => {
+  for (const row of [
+    { ...validRow, importId: 'amount-over', amount: 10000001 },
+    { ...validRow, importId: 'item-over', items: [{ name: 'x', quantity: 10000001, amount: 1 }] },
+    { ...validRow, importId: 'jpy-over', currency: 'TWD', amount: 10000000 },
+  ]) {
+    let calls = 0;
+    const result = await executeImportBatch({
+      rows: [row], succeededIds: {},
+      validate: (drafts) => parseReceiptImport(JSON.stringify({ version: 1, expenses: drafts })),
+      normalize: (draft) => normalizeImportRow(draft, 21.4),
+      create: async () => { calls += 1; },
+    });
+    assert.equal(calls, 0);
+    assert.equal(result.allSucceeded, false);
+    assert.ok(result.errors.length > 0);
+  }
+});
+
+test('exact JPY and TWD normalized boundaries may create, while a removed draft cannot', async () => {
+  const rows = [
+    { ...validRow, importId: 'jpy-boundary', amount: 10000000 },
+    { ...validRow, importId: 'twd-boundary', currency: 'TWD', amount: 10000000 },
+    { ...validRow, importId: 'removed', merchant: '不要匯入' },
+  ];
+  const remaining = removeImportDraft(rows, 'removed', {}, []);
+  const created = [];
+  const result = await executeImportBatch({
+    rows: remaining, succeededIds: {},
+    validate: (drafts) => parseReceiptImport(JSON.stringify({ version: 1, expenses: drafts })),
+    normalize: (draft) => normalizeImportRow(draft, 100),
+    create: async (expense) => { created.push(expense.merchant); return expense; },
+  });
+  assert.equal(result.allSucceeded, true);
+  assert.deepEqual(created, ['一蘭拉麵', '一蘭拉麵']);
+  assert.deepEqual(result.createdExpenses.map((expense) => expense.jpy), [10000000, 10000000]);
 });
 
 test('batch executor validates before making calls and preserves input on validation failure', async () => {

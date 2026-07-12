@@ -12,6 +12,12 @@ test('index loads the Firebase authentication and synchronization shell', async 
   }
 });
 
+test('generated browser head loads the receipt import core module', async () => {
+  const html = await readFile('index.html', 'utf8');
+  const head = html.match(/<head>[\s\S]*?<\/head>/)?.[0] || '';
+  assert.match(head, /<script type="module" src="receipt-import-core\.js"><\/script>/);
+});
+
 test('bundle error sink ignores opaque cross-origin script errors', async () => {
   const html = await readFile('index.html', 'utf8');
   assert.match(html, /e\.message === 'Script error\.' && !e\.error/);
@@ -75,6 +81,7 @@ test('expense UI exposes ChatGPT JSON review and retry flow', async () => {
   assert.match(template, /複製 ChatGPT 提示詞/);
   assert.match(template, /檢查資料/);
   assert.match(template, /確認匯入/);
+  assert.match(template, /移除此筆/);
   assert.match(template, /type="date" min="2026-07-13" max="2026-07-17"/);
   assert.match(template, /type="number" min="1" max="10000000"/);
   assert.match(app, /parseReceiptImport/);
@@ -83,6 +90,8 @@ test('expense UI exposes ChatGPT JSON review and retry flow', async () => {
   assert.match(app, /importSucceededIds/);
   assert.match(app, /recomputeDuplicateWarnings/);
   assert.match(app, /executeImportBatch/);
+  assert.match(app, /removeImportDraft/);
+  assert.match(app, /onRemove/);
 });
 
 test('bundled itinerary starts with overview and keeps meeting copy with CI110', async () => {

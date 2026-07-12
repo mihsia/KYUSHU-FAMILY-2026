@@ -62,3 +62,42 @@ Result: 20 tests, 20 passed, 0 failed.
 ## Concerns
 
 None. The retry behavior is covered by a focused source contract; live Firebase was intentionally not touched.
+
+---
+
+## Final review remediation: removable drafts and Firestore bounds
+
+### Outcome
+
+- Added a clearly labeled per-row `移除此筆` action for every unsucceeded import draft. Removal is blocked for succeeded rows and while import is busy; remaining duplicate warnings are recomputed against saved expenses and the remaining drafts.
+- Removed drafts are absent from the batch input and therefore cannot reach `createImportedExpense`.
+- Aligned the client contract with Firestore's 10,000,000 limit for row amount, item quantity, item amount, and the final normalized JPY value after either JPY passthrough or TWD conversion.
+- Added the generated outer-page head dependency on `receipt-import-core.js` and made bundle rebuilding preserve/inject both the dependency and the row action deterministically.
+
+### RED evidence
+
+Command:
+
+```text
+/Users/eric/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test tests/receipt-import-core.test.mjs tests/index-integration.test.mjs
+```
+
+Result: failed as expected because `removeImportDraft` was not exported, the generated outer head did not load `receipt-import-core.js`, and the import row template had no `移除此筆` action.
+
+### GREEN evidence
+
+- Focused core test after implementation: 17 tests, 17 passed, 0 failed.
+- Focused core and integration test after bundle rebuild: 25 tests, 25 passed, 0 failed.
+- Added exact-boundary coverage for JPY and TWD normalized values at 10,000,000, over-bound parser and normalization coverage, and assertions that invalid rows make zero create calls.
+- Added a behavioral batch assertion proving a removed draft is never created.
+
+### Final verification
+
+- Full suite: `node --test tests/*.test.mjs` passed 60/60.
+- Repeated `node scripts/build-app-bundle.mjs` followed by `cmp` against the preceding generated `index.html`: passed with no changes.
+- `git diff --check`: passed.
+- User-owned untracked PDFs and standalone HTML were not modified or staged.
+
+### Concerns
+
+None. Live Firebase was intentionally not called; contract, source, generated-template, and browser-head behavior are covered locally.
