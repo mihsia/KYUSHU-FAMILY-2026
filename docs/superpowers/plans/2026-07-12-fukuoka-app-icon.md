@@ -60,7 +60,7 @@ If one requirement fails, make one targeted image-generation edit and re-inspect
 
 - [ ] **Step 3: Verify master dimensions**
 
-Run: `sips -g pixelWidth -g pixelHeight assets/icons/fukuoka-app-icon-1024.png`  
+Run: `sips -g pixelWidth -g pixelHeight assets/icons/fukuoka-app-icon-1024.png`
 Expected: width `1024`, height `1024`.
 
 - [ ] **Step 4: Commit the approved master**
@@ -115,7 +115,7 @@ test('app icon PNGs exist at exact square sizes', async () => {
 
 - [ ] **Step 2: Run and verify RED**
 
-Run: `node --test tests/app-icon-assets.test.mjs`  
+Run: `node --test tests/app-icon-assets.test.mjs`
 Expected: FAIL because the derived assets do not exist.
 
 - [ ] **Step 3: Resize from the master**
@@ -135,7 +135,7 @@ View `apple-touch-icon.png` and `favicon-32.png`. Confirm the tower, sun, and wa
 
 - [ ] **Step 5: Run and verify GREEN**
 
-Run: `node --test tests/app-icon-assets.test.mjs`  
+Run: `node --test tests/app-icon-assets.test.mjs`
 Expected: PASS.
 
 - [ ] **Step 6: Commit derived assets**
@@ -188,7 +188,7 @@ test('web manifest uses the GitHub Pages subpath and required icons', async () =
 
 - [ ] **Step 2: Run and verify RED**
 
-Run: `node --test tests/index-integration.test.mjs`  
+Run: `node --test tests/index-integration.test.mjs`
 Expected: FAIL because manifest and install metadata are absent.
 
 - [ ] **Step 3: Create `manifest.webmanifest`**
@@ -201,15 +201,15 @@ Add an idempotent helper that inserts the approved seven install tags into a `<h
 
 - [ ] **Step 5: Rebuild and verify integration tests**
 
-Run: `node scripts/build-app-bundle.mjs`  
+Run: `node scripts/build-app-bundle.mjs`
 Expected: build completes without errors.
 
-Run: `node --test tests/index-integration.test.mjs tests/app-icon-assets.test.mjs`  
+Run: `node --test tests/index-integration.test.mjs tests/app-icon-assets.test.mjs`
 Expected: all tests PASS.
 
 - [ ] **Step 6: Verify build idempotence**
 
-Copy the built `index.html` to a temporary path, run the build again, and compare the two files.  
+Copy the built `index.html` to a temporary path, run the build again, and compare the two files.
 Expected: byte-for-byte equality.
 
 - [ ] **Step 7: Commit website integration**
@@ -231,13 +231,13 @@ git commit -m "feat: enable Fukuoka home-screen icon"
 
 - [ ] **Step 1: Run full verification**
 
-Run: `node --test tests/*.test.mjs`  
+Run: `node --test tests/*.test.mjs`
 Expected: zero failures.
 
-Run: `git diff --check origin/main...HEAD`  
+Run: `git diff --check origin/main...HEAD`
 Expected: no output.
 
-Run: `node scripts/build-app-bundle.mjs` followed by a clean tracked diff check.  
+Run: `node scripts/build-app-bundle.mjs` followed by a clean tracked diff check.
 Expected: build is deterministic and introduces no uncommitted tracked changes.
 
 - [ ] **Step 2: Run local browser checks**
@@ -263,4 +263,3 @@ Confirm the Pages workflow builds the merge commit. Fetch all five icon files an
 - [ ] **Step 6: iPhone Safari handoff**
 
 Ask the user to delete the old home-screen shortcut, reopen the site in Safari, and choose `分享 → 加入主畫面`. Verify the preview icon, title `九州親子遊`, standalone launch, Google login, and Firebase synchronization.
-
