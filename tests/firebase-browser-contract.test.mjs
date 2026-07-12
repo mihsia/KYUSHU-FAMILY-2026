@@ -57,6 +57,33 @@ test('bridge copies shared BOT rate metadata into local storage', async () => {
   }
 });
 
+test('initial Firebase hydration waits for every snapshot before publishing ready', async () => {
+  const source = await readFile('firebase-family.js', 'utf8');
+  assert.match(source, /pendingInitialSnapshots/);
+  assert.match(source, /new Set\(\['root', \.\.\.COLLECTIONS\]\)/);
+  assert.match(source, /markSnapshotReady\('root'\)/);
+  assert.match(source, /for \(const name of COLLECTIONS\)[\s\S]*markSnapshotReady\(name\)/);
+  const markReady = source.match(/function markSnapshotReady[\s\S]*?\n}/)?.[0] || '';
+  assert.match(markReady, /pendingInitialSnapshots\.size === 0/);
+  assert.match(markReady, /emit\(\{ phase: 'ready'/);
+});
+
+test('documents bypass base64 local storage and use explicit Firebase operations', async () => {
+  const [app, bridge, service] = await Promise.all([
+    readFile('src/app.jsx', 'utf8'),
+    readFile('firebase-bridge.js', 'utf8'),
+    readFile('firebase-family.js', 'utf8'),
+  ]);
+  const upload = app.match(/handleUpload\(catName\) \{[\s\S]*?\n  }/)?.[0] || '';
+  const deletion = app.match(/deleteDoc\(catName, idx\) \{[\s\S]*?\n  }/)?.[0] || '';
+  assert.match(upload, /KyushuFamily\.uploadDocument/);
+  assert.doesNotMatch(upload, /FileReader|readAsDataURL|dataUrl:\s*reader/);
+  assert.match(deletion, /KyushuFamily\.deleteDocument/);
+  assert.match(app, /KyushuFamily\.previewDocument/);
+  assert.doesNotMatch(bridge, /syncDocumentChanges|fetch\(file\.dataUrl\)/);
+  assert.match(service, /uploadDocument[\s\S]*getDownloadURL/);
+});
+
 test('browser service exposes receipt-aware expense operations in safe order', async () => {
   const source = await readFile('firebase-family.js', 'utf8');
   for (const name of ['createExpenseWithReceipt', 'previewReceipt', 'deleteExpenseWithReceipt']) {

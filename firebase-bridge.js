@@ -4,7 +4,6 @@ const STORE_KEY = 'kyushu-family-app-v1';
 const originalSetItem = Storage.prototype.setItem;
 let applyingCloud = false;
 let cloudTimer = 0;
-let lastCloudDocuments = [];
 
 function ensureShell() {
   if (!document.querySelector('link[href="firebase-family.css"]')) {
@@ -37,27 +36,10 @@ function currentState() {
   catch (_) { return {}; }
 }
 
-function flattenDocuments(documents = {}) {
-  return Object.values(documents).flat().filter(Boolean);
-}
-
-async function syncDocumentChanges(next) {
-  const localDocuments = flattenDocuments(next.documents);
-  const removed = lastCloudDocuments.filter((cloudDoc) => cloudDoc.id && !localDocuments.some((item) => item.id === cloudDoc.id));
-  const added = Object.entries(next.documents || {}).flatMap(([category, files]) =>
-    (files || []).filter((file) => file.dataUrl && !file.id).map((file) => ({ category, file })));
-  await Promise.all(removed.map((file) => window.KyushuFamily.deleteDocument(file).catch(console.error)));
-  await Promise.all(added.map(async ({ category, file }) => {
-    const blob = await fetch(file.dataUrl).then((response) => response.blob());
-    return window.KyushuFamily.uploadDocument(category, new File([blob], file.name, { type: blob.type }));
-  }));
-}
-
 async function handleLocalSave(value) {
   if (applyingCloud || !window.KyushuFamily) return;
   try {
     const state = JSON.parse(value);
-    await syncDocumentChanges(state);
     await window.KyushuFamily.saveState(state);
   } catch (error) {
     console.error('Firebase family sync failed:', error);
@@ -105,13 +87,12 @@ function applyCloud(snapshot) {
       rateUpdatedAt: snapshot.data.rateUpdatedAt,
       rateUpdatedBy: snapshot.data.rateUpdatedBy,
     };
-    lastCloudDocuments = flattenDocuments(next.documents);
     const encoded = JSON.stringify(next);
     if (localStorage.getItem(STORE_KEY) === encoded) return;
     applyingCloud = true;
     originalSetItem.call(localStorage, STORE_KEY, encoded);
     applyingCloud = false;
-    window.location.reload();
+    window.dispatchEvent(new CustomEvent('kyushu-family-cloud-state', { detail: next }));
   }, 700);
 }
 

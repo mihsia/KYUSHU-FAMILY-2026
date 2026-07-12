@@ -18,12 +18,18 @@ test('bundle error sink ignores opaque cross-origin script errors', async () => 
 });
 
 test('bridge starts Firebase and synchronizes local application state', async () => {
-  const source = await readFile('firebase-bridge.js', 'utf8');
+  const [source, app] = await Promise.all([
+    readFile('firebase-bridge.js', 'utf8'),
+    readFile('src/app.jsx', 'utf8'),
+  ]);
   assert.match(source, /KyushuFamily\.start\(\)/);
   assert.match(source, /KyushuFamily\.subscribe/);
   assert.match(source, /KyushuFamily\.saveState/);
-  assert.match(source, /KyushuFamily\.uploadDocument/);
-  assert.match(source, /KyushuFamily\.deleteDocument/);
+  assert.doesNotMatch(source, /syncDocumentChanges|fetch\(file\.dataUrl\)/);
+  assert.doesNotMatch(source, /window\.location\.reload/);
+  assert.match(source, /kyushu-family-cloud-state/);
+  assert.match(app, /addEventListener\('kyushu-family-cloud-state'/);
+  assert.match(app, /removeEventListener\('kyushu-family-cloud-state'/);
   assert.match(source, /kyushu-family-app-v1/);
 });
 

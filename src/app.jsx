@@ -250,6 +250,7 @@ class Component extends DCLogic {
     const saved = loadStore();
     this.mapRef = React.createRef();
     this.mapInited = false;
+    this.applyCloudState = this.applyCloudState.bind(this);
     this.state = {
       view: 'home',
       itineraryTab: 'overview',
@@ -300,6 +301,7 @@ class Component extends DCLogic {
   }
 
   componentDidMount() {
+    window.addEventListener('kyushu-family-cloud-state', this.applyCloudState);
     this.tryInitMap();
   }
 
@@ -308,7 +310,29 @@ class Component extends DCLogic {
   }
 
   componentWillUnmount() {
+    window.removeEventListener('kyushu-family-cloud-state', this.applyCloudState);
     if (this.state.expenseReceiptUrl) URL.revokeObjectURL(this.state.expenseReceiptUrl);
+  }
+
+  applyCloudState(event) {
+    const next = event?.detail || {};
+    const rate = Number(next.rate) > 0 ? Number(next.rate) : this.state.rate;
+    this.setState({
+      wishlist: Array.isArray(next.wishlist) ? next.wishlist : this.state.wishlist,
+      mustbuy: Array.isArray(next.mustbuy) ? next.mustbuy : this.state.mustbuy,
+      packingChecked: next.packingChecked && typeof next.packingChecked === 'object'
+        ? next.packingChecked : this.state.packingChecked,
+      documents: next.documents && typeof next.documents === 'object'
+        ? next.documents : this.state.documents,
+      expenses: Array.isArray(next.expenses) ? next.expenses : this.state.expenses,
+      rate,
+      rateDraft: String(rate),
+      rateMeta: {
+        source: next.rateSource === 'BOT cash sell' ? next.rateSource : 'BOT cash sell',
+        updatedAt: next.rateUpdatedAt || null,
+        updatedBy: String(next.rateUpdatedBy || ''),
+      },
+    });
   }
 
   tryInitMap() {
@@ -365,31 +389,41 @@ class Component extends DCLogic {
   }
 
   handleUpload(catName) {
-    return (e) => {
+    return async (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
+      e.target.value = '';
+      try {
+        const uploaded = await window.KyushuFamily.uploadDocument(catName, file);
         this.setState(s => {
           const docs = { ...s.documents };
-          docs[catName] = [...(docs[catName] || []), { name: file.name, dataUrl: reader.result }];
+          docs[catName] = [...(docs[catName] || []), uploaded];
           return { documents: docs };
         }, () => this.persist());
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        window.alert(error?.message || '文件上傳失敗，請重試');
+      }
     };
   }
   deleteDoc(catName, idx) {
-    return () => {
-      this.setState(s => {
+    return async () => {
+      const file = (this.state.documents[catName] || [])[idx];
+      if (!file) return;
+      try {
+        await window.KyushuFamily.deleteDocument(file);
+        this.setState(s => {
         const docs = { ...s.documents };
         docs[catName] = docs[catName].filter((_, i) => i !== idx);
         return { documents: docs };
-      }, () => this.persist());
+        }, () => this.persist());
+      } catch (error) {
+        window.alert(error?.message || '文件刪除失敗，請重試');
+      }
     };
   }
-  previewDoc(dataUrl) {
-    return () => { window.open(dataUrl, '_blank'); };
+  previewDoc(file) {
+    return () => window.KyushuFamily.previewDocument(file)
+      .catch((error) => window.alert(error?.message || '文件開啟失敗，請重試'));
   }
 
   deleteExpense(expense) {
@@ -507,7 +541,7 @@ class Component extends DCLogic {
     const docCategories = ['機票', '住宿', 'VJW', '保險', '其他'].map(name => {
       const files = (this.state.documents[name] || []).map((f, idx) => ({
         name: f.name,
-        onPreview: this.previewDoc(f.dataUrl),
+        onPreview: this.previewDoc(f),
         onDelete: this.deleteDoc(name, idx),
       }));
       return { name, files, empty: files.length === 0, onUpload: this.handleUpload(name) };

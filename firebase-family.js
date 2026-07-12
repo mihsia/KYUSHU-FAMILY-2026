@@ -59,6 +59,7 @@ let status = { phase: 'verifying', message: '正在驗證', user: null, error: n
 let unsubs = [];
 let started = false;
 let suppressWrites = false;
+let pendingInitialSnapshots = new Set();
 
 function tripRef() {
   return doc(db, 'trips', TRIP_ID);
@@ -78,6 +79,13 @@ function emit(extra = {}) {
 function clearSubscriptions() {
   unsubs.forEach((unsubscribe) => unsubscribe());
   unsubs = [];
+}
+
+function markSnapshotReady(name) {
+  pendingInitialSnapshots.delete(name);
+  if (pendingInitialSnapshots.size === 0) {
+    emit({ phase: 'ready', message: '已同步', error: null });
+  }
 }
 
 function audit() {
@@ -169,6 +177,7 @@ async function initializeTripIfNeeded() {
 
 function attachSnapshots() {
   clearSubscriptions();
+  pendingInitialSnapshots = new Set(['root', ...COLLECTIONS]);
   unsubs.push(onSnapshot(tripRef(), (snapshot) => {
     if (snapshot.exists()) {
       const root = snapshot.data();
@@ -177,7 +186,7 @@ function attachSnapshots() {
       cloud.rateUpdatedAt = root.rateUpdatedAt || null;
       cloud.rateUpdatedBy = String(root.rateUpdatedBy || '');
     }
-    emit({ phase: 'ready', message: '已同步', error: null });
+    markSnapshotReady('root');
   }, handleError));
   for (const name of COLLECTIONS) {
     unsubs.push(onSnapshot(tripCollection(name), async (snapshot) => {
@@ -197,7 +206,7 @@ function attachSnapshots() {
       } else {
         cloud[name] = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
       }
-      emit({ phase: 'ready', message: '已同步', error: null });
+      markSnapshotReady(name);
     }, handleError));
   }
 }
@@ -313,13 +322,23 @@ async function uploadDocument(category, file, onProgress = () => {}) {
     (snapshot) => onProgress(Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100)),
     reject,
     resolve));
-  await setDoc(documentRef, withCreation({ category, name: file.name, storagePath: path, contentType: file.type, size: file.size }));
-  return { id: documentRef.id, category, name: file.name, storagePath: path };
+  try {
+    await setDoc(documentRef, withCreation({ category, name: file.name, storagePath: path, contentType: file.type, size: file.size }));
+  } catch (error) {
+    await deleteObject(objectRef).catch(() => {});
+    throw error;
+  }
+  const dataUrl = await getDownloadURL(objectRef);
+  return { id: documentRef.id, category, name: file.name, storagePath: path, contentType: file.type, size: file.size, dataUrl };
 }
 
 async function deleteDocument(documentData) {
   if (!currentUser) throw new Error('請先登入');
-  await deleteObject(ref(storage, documentData.storagePath));
+  try {
+    await deleteObject(ref(storage, documentData.storagePath));
+  } catch (error) {
+    if (error?.code !== 'storage/object-not-found') throw error;
+  }
   await deleteDoc(doc(tripCollection('documents'), documentData.id));
 }
 
