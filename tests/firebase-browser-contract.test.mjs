@@ -102,6 +102,19 @@ test('browser service exposes receipt-aware expense operations in safe order', a
   assert.match(deleteBody, /throw new Error\('收據刪除失敗，請重試'/);
 });
 
+test('browser service exposes imported expense writes and preserves import metadata', async () => {
+  const source = await readFile('firebase-family.js', 'utf8');
+  assert.match(source, /async function createImportedExpense\(expense\)/);
+  assert.match(source, /originalAmount/);
+  assert.match(source, /originalCurrency/);
+  assert.match(source, /importSource/);
+  assert.match(source, /merchant/);
+  assert.match(source, /items/);
+  assert.match(source, /confidence/);
+  assert.match(source, /importNotes/);
+  assert.match(source, /Object\.freeze[\s\S]*createImportedExpense/);
+});
+
 test('Firebase previews navigate the current page instead of opening async popups', async () => {
   const source = await readFile('firebase-family.js', 'utf8');
   const receipt = source.match(/async function previewReceipt[\s\S]*?\n}/)?.[0] || '';
