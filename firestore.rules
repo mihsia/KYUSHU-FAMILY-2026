@@ -65,18 +65,68 @@ service cloud.firestore {
         && data.receiptSize is int && data.receiptSize > 0 && data.receiptSize <= 10 * 1024 * 1024;
     }
 
+    function hasNoImport(data) {
+      return !data.keys().hasAny([
+        'originalAmount', 'originalCurrency', 'importSource', 'merchant',
+        'items', 'confidence', 'importNotes', 'importDate'
+      ]);
+    }
+
+    function isValidImportItem(item) {
+      return item is map
+        && item.keys().hasAll(['name', 'quantity', 'amount'])
+        && item.keys().hasOnly(['name', 'quantity', 'amount'])
+        && item.name is string && item.name.size() > 0 && item.name.size() <= 100
+        && item.quantity is number && item.quantity > 0 && item.quantity <= 10000000
+        && item.amount is number && item.amount > 0 && item.amount <= 10000000;
+    }
+
+    function isValidImportItems(items) {
+      return items is list && items.size() <= 10
+        && (items.size() < 1 || isValidImportItem(items[0]))
+        && (items.size() < 2 || isValidImportItem(items[1]))
+        && (items.size() < 3 || isValidImportItem(items[2]))
+        && (items.size() < 4 || isValidImportItem(items[3]))
+        && (items.size() < 5 || isValidImportItem(items[4]))
+        && (items.size() < 6 || isValidImportItem(items[5]))
+        && (items.size() < 7 || isValidImportItem(items[6]))
+        && (items.size() < 8 || isValidImportItem(items[7]))
+        && (items.size() < 9 || isValidImportItem(items[8]))
+        && (items.size() < 10 || isValidImportItem(items[9]));
+    }
+
+    function hasValidImport(data) {
+      return data.keys().hasAll([
+          'originalAmount', 'originalCurrency', 'importSource', 'merchant',
+          'items', 'confidence', 'importNotes', 'importDate'
+        ])
+        && data.originalAmount is number && data.originalAmount > 0 && data.originalAmount <= 10000000
+        && data.originalCurrency in ['JPY', 'TWD']
+        && data.importSource == 'chatgpt-json-v1'
+        && data.merchant is string && data.merchant.size() > 0 && data.merchant.size() <= 100
+        && data.items is list && data.items.size() <= 10 && isValidImportItems(data.items)
+        && data.confidence is number && data.confidence >= 0 && data.confidence <= 1
+        && data.importNotes is string && data.importNotes.size() <= 300
+        && data.importDate in [
+          '2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17'
+        ];
+    }
+
     function isValidExpense(data, expenseId) {
       return expenseId.matches('^[A-Za-z0-9_-]+$')
         && data.keys().hasOnly([
           'day', 'category', 'note', 'jpy', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt',
-          'receiptPath', 'receiptName', 'receiptType', 'receiptSize'
+          'receiptPath', 'receiptName', 'receiptType', 'receiptSize',
+          'originalAmount', 'originalCurrency', 'importSource', 'merchant',
+          'items', 'confidence', 'importNotes', 'importDate'
         ])
         && data.day is int && data.day >= 0 && data.day <= 4
-        && data.category in ['餐飲', '交通', '購物', '門票', '其他']
+        && data.category in ['餐飲', '交通', '住宿', '購物', '門票', '其他']
         && data.note is string && data.note.size() > 0 && data.note.size() <= 300
         && data.jpy is number && data.jpy > 0 && data.jpy <= 10000000
         && validAudit(data)
-        && (hasNoReceipt(data) || hasValidReceipt(data, expenseId));
+        && (hasNoReceipt(data) || hasValidReceipt(data, expenseId))
+        && (hasNoImport(data) || hasValidImport(data));
     }
 
     function isValidDocument(data) {

@@ -49,6 +49,24 @@ test('Firestore expense receipt fields are atomic, image-only, and tied to the e
   assert.match(rules, /hasNoReceipt\(data\) \|\| hasValidReceipt\(data, expenseId\)/);
 });
 
+test('Firestore validates ChatGPT import metadata without update bypasses', async () => {
+  const rules = await readFile('firestore.rules', 'utf8');
+  for (const field of ['originalAmount', 'originalCurrency', 'importSource', 'merchant',
+    'items', 'confidence', 'importNotes', 'importDate']) {
+    assert.match(rules, new RegExp(field));
+  }
+  assert.match(rules, /data\.originalCurrency in \['JPY', 'TWD'\]/);
+  assert.match(rules, /data\.importSource == 'chatgpt-json-v1'/);
+  assert.match(rules, /data\.items\.size\(\) <= 10/);
+  assert.match(rules, /function isValidImportItem\(item\)/);
+  assert.match(rules, /data\.confidence >= 0 && data\.confidence <= 1/);
+  assert.match(rules, /hasNoImport\(data\) \|\| hasValidImport\(data\)/);
+  assert.match(rules, /allow create, update: if isAllowed\(\) && isValidExpense\(request\.resource\.data, expenseId\)/);
+  for (let index = 0; index < 10; index += 1) {
+    assert.ok(rules.includes(`(items.size() < ${index + 1} || isValidImportItem(items[${index}]))`));
+  }
+});
+
 test('Storage rules preserve document uploads and restrict receipts to images up to 10 MB', async () => {
   const rules = await readFile('storage.rules', 'utf8');
   allowed.forEach((email) => assert.match(rules, new RegExp(email.replace('.', '\\.'))));
