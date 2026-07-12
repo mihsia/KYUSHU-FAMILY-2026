@@ -272,6 +272,12 @@ class Component extends DCLogic {
       expenseSaving: false,
       expenseProgress: 0,
       expenseError: '',
+      importText: '',
+      importRows: [],
+      importErrors: [],
+      importBusy: false,
+      importResult: '',
+      importSucceededIds: {},
       rate: Number(saved.rate) > 0 ? Number(saved.rate) : 21.4,
       rateMeta: {
         source: saved.rateSource === 'BOT cash sell' ? saved.rateSource : 'BOT cash sell',
@@ -470,6 +476,65 @@ class Component extends DCLogic {
     }));
   }
 
+  checkReceiptImport() {
+    const parsed = window.ReceiptImportCore.parseReceiptImport(this.state.importText, this.state.expenses);
+    this.setState({
+      importRows: parsed.ok ? parsed.rows.map((row, index) => ({ ...row, importId: `import-${index}` })) : [],
+      importErrors: parsed.errors,
+      importResult: '',
+      importSucceededIds: {},
+    });
+  }
+
+  updateImportRow(index, patch) {
+    this.setState((state) => ({
+      importRows: window.ReceiptImportCore.recomputeDuplicateWarnings(
+        state.importRows.map((row, i) => i === index ? { ...row, ...patch } : row),
+        state.expenses,
+      ),
+      importErrors: [],
+      importResult: '',
+    }));
+  }
+
+  removeImportRow(importId) {
+    if (this.state.importBusy || this.state.importSucceededIds[importId]) return;
+    this.setState((state) => ({
+      importRows: window.ReceiptImportCore.removeImportDraft(
+        state.importRows, importId, state.importSucceededIds, state.expenses,
+      ),
+      importErrors: [],
+      importResult: '',
+    }));
+  }
+
+  async confirmReceiptImport() {
+    if (this.state.importBusy) return;
+    this.setState({ importBusy: true, importErrors: [], importResult: '' });
+    const result = await window.ReceiptImportCore.executeImportBatch({
+      rows: this.state.importRows,
+      succeededIds: this.state.importSucceededIds,
+      validate: (rows) => window.ReceiptImportCore.parseReceiptImport(
+        JSON.stringify({ version: 1, expenses: rows }), this.state.expenses,
+      ),
+      normalize: (row) => window.ReceiptImportCore.normalizeImportRow(row, this.state.rate),
+      create: (expense) => window.KyushuFamily.createImportedExpense(expense),
+    });
+    const successCount = Object.keys(result.succeededIds).length;
+    const failureCount = result.errors.length;
+    this.setState((state) => ({
+      expenses: [...state.expenses, ...result.createdExpenses],
+      importBusy: false,
+      importSucceededIds: result.allSucceeded ? {} : result.succeededIds,
+      importRows: result.allSucceeded ? [] : state.importRows,
+      importText: result.allSucceeded ? '' : state.importText,
+      importErrors: result.errors,
+      importResult: result.allSucceeded
+        ? `成功 ${successCount} 筆`
+        : `成功 ${successCount} 筆，失敗 ${failureCount} 筆；可重試失敗資料`,
+    }), () => this.persist());
+  }
+
   renderVals() {
     const view = this.state.view;
     const today = new Date();
@@ -563,6 +628,20 @@ class Component extends DCLogic {
       color: this.state.expenseCat === c ? '#fff' : '#666',
     }));
 
+    const importRows = this.state.importRows.map((row, index) => ({
+      ...row,
+      succeeded: !!this.state.importSucceededIds[row.importId],
+      canRemove: !this.state.importBusy && !this.state.importSucceededIds[row.importId],
+      lowConfidence: Number(row.confidence) < 0.7,
+      onDate: (e) => this.updateImportRow(index, { date: e.target.value }),
+      onMerchant: (e) => this.updateImportRow(index, { merchant: e.target.value }),
+      onAmount: (e) => this.updateImportRow(index, { amount: Number(e.target.value) }),
+      onCurrency: (e) => this.updateImportRow(index, { currency: e.target.value }),
+      onCategory: (e) => this.updateImportRow(index, { category: e.target.value }),
+      onDescription: (e) => this.updateImportRow(index, { description: e.target.value }),
+      onRemove: () => this.removeImportRow(row.importId),
+    }));
+
     const expenseByDay = DAYS.map(d => {
       const entries = this.state.expenses.filter(e => e.day === d.id).map(e => ({
         ...e,
@@ -643,6 +722,26 @@ class Component extends DCLogic {
       expenseTotalTwd,
       expenseDayOptions,
       expenseCatOptions,
+      importText: this.state.importText,
+      importRows,
+      importErrors: this.state.importErrors,
+      importHasErrors: this.state.importErrors.length > 0,
+      importResult: this.state.importResult,
+      importBusy: this.state.importBusy,
+      importConfirmDisabled: this.state.importBusy || this.state.importRows.length === 0,
+      onImportText: (e) => this.setState({ importText: e.target.value }),
+      copyReceiptPrompt: async () => {
+        const prompt = window.ReceiptImportCore.CHATGPT_RECEIPT_PROMPT;
+        try {
+          if (!navigator.clipboard?.writeText) throw new Error('clipboard unavailable');
+          await navigator.clipboard.writeText(prompt);
+          window.alert('已複製 ChatGPT 提示詞');
+        } catch {
+          window.alert(prompt);
+        }
+      },
+      checkReceiptImport: () => this.checkReceiptImport(),
+      confirmReceiptImport: () => this.confirmReceiptImport(),
       expenseNote: this.state.expenseNote,
       onExpenseNoteInput: (e) => this.setState({ expenseNote: e.target.value }),
       expenseJpy: this.state.expenseJpy,

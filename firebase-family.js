@@ -108,6 +108,24 @@ function listItem(item) {
   return withCreation({ text: String(item.text || '').slice(0, 300), checked: !!item.checked });
 }
 
+function importMetadata(item) {
+  if (item.importSource !== 'chatgpt-json-v1') return {};
+  return {
+    originalAmount: Number(item.originalAmount),
+    originalCurrency: item.originalCurrency,
+    importSource: 'chatgpt-json-v1',
+    merchant: String(item.merchant).slice(0, 100),
+    items: item.items.slice(0, 10).map((entry) => ({
+      name: String(entry.name).slice(0, 100),
+      quantity: Number(entry.quantity),
+      amount: Number(entry.amount),
+    })),
+    confidence: Number(item.confidence),
+    importNotes: String(item.importNotes || '').slice(0, 300),
+    importDate: String(item.importDate),
+  };
+}
+
 function expenseItem(item) {
   const receipt = item.receiptPath ? {
     receiptPath: String(item.receiptPath),
@@ -117,9 +135,10 @@ function expenseItem(item) {
   } : {};
   return withCreation({
     day: Math.max(0, Math.min(4, Number(item.day) || 0)),
-    category: ['餐飲', '交通', '購物', '門票', '其他'].includes(item.category) ? item.category : '其他',
+    category: ['餐飲', '交通', '住宿', '購物', '門票', '其他'].includes(item.category) ? item.category : '其他',
     note: String(item.note || '(未命名)').slice(0, 300),
     jpy: Math.max(1, Number(item.jpy) || 1),
+    ...importMetadata(item),
     ...receipt,
   });
 }
@@ -288,10 +307,18 @@ async function createExpenseWithReceipt(expense, file = null, onProgress = () =>
   return { id: expenseRef.id, ...expense, ...receipt };
 }
 
+async function createImportedExpense(expense) {
+  if (!currentUser) throw new Error('請先登入');
+  const expenseRef = doc(tripCollection('expenses'));
+  const data = expenseItem(expense);
+  await setDoc(expenseRef, data);
+  return { id: expenseRef.id, ...expense };
+}
+
 async function previewReceipt(expense) {
   if (!expense.receiptPath) throw new Error('此筆記帳沒有收據');
   const url = await getDownloadURL(ref(storage, expense.receiptPath));
-  window.open(url, '_blank', 'noopener');
+  window.location.assign(url);
 }
 
 async function deleteExpenseWithReceipt(expense) {
@@ -343,8 +370,9 @@ async function deleteDocument(documentData) {
 }
 
 async function previewDocument(documentData) {
+  if (!documentData?.storagePath) throw new Error('文件資料不完整');
   const url = await getDownloadURL(ref(storage, documentData.storagePath));
-  window.open(url, '_blank', 'noopener');
+  window.location.assign(url);
 }
 
 async function start() {
@@ -414,6 +442,7 @@ window.KyushuFamily = Object.freeze({
   subscribe,
   saveState,
   saveRate,
+  createImportedExpense,
   createExpenseWithReceipt,
   previewReceipt,
   deleteExpenseWithReceipt,
