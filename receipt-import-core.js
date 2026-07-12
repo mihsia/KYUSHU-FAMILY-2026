@@ -44,7 +44,7 @@ function validateRow(row, index, errors) {
   if (!isFinitePositive(row.amount) || row.amount > 10000000) errors.push(`${path} amount 必須是有限正數且不超過 10000000`);
   if (!CURRENCIES.includes(row.currency)) errors.push(`${path} currency 只能是 JPY 或 TWD`);
   if (!IMPORT_CATEGORIES.includes(row.category)) errors.push(`${path} category 不支援`);
-  validateString(errors, `${path} description`, row.description, 300);
+  validateString(errors, `${path} description`, row.description, 200);
   validateString(errors, `${path} notes`, row.notes, 300);
 
   if (typeof row.confidence !== 'number' || !Number.isFinite(row.confidence)
@@ -96,19 +96,28 @@ export function parseReceiptImport(text, existingExpenses = []) {
     amount: expense.amount ?? expense.originalAmount,
     currency: expense.currency ?? expense.originalCurrency,
   })));
+  const batchKeyCounts = data.expenses.reduce((counts, row) => {
+    const key = duplicateKey(row);
+    counts.set(key, (counts.get(key) || 0) + 1);
+    return counts;
+  }, new Map());
   const rows = data.expenses.map((row) => ({
     ...row,
     day: DATE_TO_DAY[row.date],
-    duplicate: existingKeys.has(duplicateKey(row)),
+    duplicate: existingKeys.has(duplicateKey(row)) || batchKeyCounts.get(duplicateKey(row)) > 1,
   }));
   return { ok: true, rows, errors: [] };
 }
 
 export function normalizeImportRow(row, rate) {
   const originalAmount = Number(row.amount);
+  const numericRate = Number(rate);
+  if (row.currency === 'TWD' && (!Number.isFinite(numericRate) || numericRate <= 0)) {
+    throw new RangeError('rate must be a finite positive number for TWD conversion');
+  }
   const jpy = row.currency === 'JPY'
     ? originalAmount
-    : Math.round(originalAmount * 100 / Number(rate));
+    : Math.round(originalAmount * 100 / numericRate);
   return {
     day: DATE_TO_DAY[row.date],
     category: row.category,

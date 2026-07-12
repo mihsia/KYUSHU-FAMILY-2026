@@ -25,13 +25,36 @@ test('parses contract v1 and maps trip dates', () => {
 test('rejects wrappers, unsupported values, and batches over 50', () => {
   assert.match(parseReceiptImport('```json\n{}\n```').errors[0], /無法讀取 JSON/);
   assert.match(parseReceiptImport(JSON.stringify({ version: 2, expenses: [] })).errors[0], /版本/);
-  assert.match(parseReceiptImport(JSON.stringify({ version: 1, expenses: [{
+  const invalid = parseReceiptImport(JSON.stringify({ version: 1, expenses: [{
     date: '2026-07-18', merchant: 'x', amount: -1, currency: 'USD',
     category: 'x', description: '', items: [], confidence: 2, notes: '',
-  }] })).errors.join(' '), /日期|amount|currency|category|confidence/);
+  }] })).errors.join(' ');
+  assert.match(invalid, /日期/);
+  assert.match(invalid, /amount/);
+  assert.match(invalid, /currency/);
+  assert.match(invalid, /category/);
+  assert.match(invalid, /confidence/);
   assert.match(parseReceiptImport(JSON.stringify({
     version: 1, expenses: Array.from({ length: 51 }, () => validRow),
   })).errors[0], /50/);
+});
+
+test('marks duplicate rows within the imported batch and against existing expenses', () => {
+  const result = parseReceiptImport(JSON.stringify({
+    version: 1,
+    expenses: [validRow, { ...validRow }],
+  }), [{
+    importDate: '2026-07-13', merchant: '一蘭拉麵', originalAmount: 2480,
+    originalCurrency: 'JPY',
+  }]);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.rows.map((row) => row.duplicate), [true, true]);
+
+  const batchOnly = parseReceiptImport(JSON.stringify({
+    version: 1,
+    expenses: [validRow, { ...validRow }],
+  }));
+  assert.deepEqual(batchOnly.rows.map((row) => row.duplicate), [true, true]);
 });
 
 test('reports row paths and returns no rows when validation fails', () => {
@@ -58,6 +81,19 @@ test('enforces string and item limits and finite positive numbers', () => {
   assert.match(result.errors.join(' '), /merchant|amount|items/);
 });
 
+test('accepts descriptions up to 200 characters and rejects 201', () => {
+  const boundary = parseReceiptImport(JSON.stringify({
+    version: 1, expenses: [{ ...validRow, description: 'x'.repeat(200) }],
+  }));
+  assert.equal(boundary.ok, true);
+
+  const tooLong = parseReceiptImport(JSON.stringify({
+    version: 1, expenses: [{ ...validRow, description: 'x'.repeat(201) }],
+  }));
+  assert.equal(tooLong.ok, false);
+  assert.match(tooLong.errors.join(' '), /description.*200/);
+});
+
 test('preserves TWD and freezes its JPY conversion', () => {
   const expense = normalizeImportRow({
     date: '2026-07-14', merchant: '超商', amount: 214,
@@ -69,6 +105,15 @@ test('preserves TWD and freezes its JPY conversion', () => {
   assert.equal(expense.originalCurrency, 'TWD');
   assert.equal(expense.jpy, 1000);
   assert.equal(expense.importSource, 'chatgpt-json-v1');
+});
+
+test('rejects non-finite, zero, and negative TWD conversion rates', () => {
+  const twdRow = {
+    ...validRow, currency: 'TWD', amount: 214,
+  };
+  for (const rate of [NaN, Infinity, -Infinity, 0, -1]) {
+    assert.throws(() => normalizeImportRow(twdRow, rate), /rate.*finite positive/i);
+  }
 });
 
 test('normalizes duplicate comparison values', () => {
