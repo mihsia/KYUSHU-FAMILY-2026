@@ -291,7 +291,7 @@ async function createExpenseWithReceipt(expense, file = null, onProgress = () =>
 async function previewReceipt(expense) {
   if (!expense.receiptPath) throw new Error('此筆記帳沒有收據');
   const url = await getDownloadURL(ref(storage, expense.receiptPath));
-  window.open(url, '_blank', 'noopener');
+  window.location.assign(url);
 }
 
 async function deleteExpenseWithReceipt(expense) {
@@ -343,8 +343,9 @@ async function deleteDocument(documentData) {
 }
 
 async function previewDocument(documentData) {
+  if (!documentData?.storagePath) throw new Error('文件資料不完整');
   const url = await getDownloadURL(ref(storage, documentData.storagePath));
-  window.open(url, '_blank', 'noopener');
+  window.location.assign(url);
 }
 
 async function start() {

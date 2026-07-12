@@ -102,6 +102,16 @@ test('browser service exposes receipt-aware expense operations in safe order', a
   assert.match(deleteBody, /throw new Error\('收據刪除失敗，請重試'/);
 });
 
+test('Firebase previews navigate the current page instead of opening async popups', async () => {
+  const source = await readFile('firebase-family.js', 'utf8');
+  const receipt = source.match(/async function previewReceipt[\s\S]*?\n}/)?.[0] || '';
+  const document = source.match(/async function previewDocument[\s\S]*?\n}/)?.[0] || '';
+  for (const body of [receipt, document]) {
+    assert.match(body, /window\.location\.assign\(url\)/);
+    assert.doesNotMatch(body, /window\.open/);
+  }
+});
+
 test('generic state sync does not write or diff-delete expenses', async () => {
   const service = await readFile('firebase-family.js', 'utf8');
   const bridge = await readFile('firebase-bridge.js', 'utf8');
